@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Panel de Administración</title>
+  <style>
+    body { font-family: Arial; margin: 2em; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 2em; }
+    th, td { padding: 8px; border: 1px solid #ccc; text-align: left; }
+    th { background: #eee; }
+    h2 { margin-top: 2em; }
+    img { max-width: 100px; }
+    form { display: inline; }
+  </style>
+</head>
+<body>
+
+  <h1>📋 Panel de Administración</h1>
+
+  <!-- 🧍 Usuarios por verificar -->
+  <h2>Usuarios con verificación pendiente</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Usuario</th><th>Email</th><th>DNI frente</th><th>DNI dorso</th><th>Estado</th><th>Acciones</th><th>Historial</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for u in usuarios %}
+        {% if u.estado_verificacion != 'aprobado' %}
+        <tr>
+          <td>{{ u.username }}</td>
+          <td>{{ u.email }}</td>
+          <td>
+  {% if u.dni_frente %}
+    <a href="{{ u.dni_frente.url }}" target="_blank">
+      <img src="{{ u.dni_frente.url }}" width="100">
+    </a>
+  {% endif %}
+</td>
+<td>
+  {% if u.dni_dorso %}
+    <a href="{{ u.dni_dorso.url }}" target="_blank">
+      <img src="{{ u.dni_dorso.url }}" width="100">
+    </a>
+  {% endif %}
+</td>
+          <td>{{ u.estado_verificacion }}</td>
+          <td>
+            <form method="post" action="{% url 'cambiar_estado_verificacion' u.id %}">
+              {% csrf_token %}
+              <select name="estado">
+                <option value="pendiente" {% if u.estado_verificacion == 'pendiente' %}selected{% endif %}>Pendiente</option>
+                <option value="aprobado" {% if u.estado_verificacion == 'aprobado' %}selected{% endif %}>Aprobado</option>
+                <option value="rechazado" {% if u.estado_verificacion == 'rechazado' %}selected{% endif %}>Rechazado</option>
+              </select>
+              <button type="submit">Actualizar</button>
+            </form>
+          </td>
+          <td><a href="{% url 'historial_usuario' u.id %}">Ver historial</a></td>
+        </tr>
+        {% endif %}
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- 💸 Retiros pendientes -->
+  <h2>Retiros pendientes</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Usuario</th><th>Monto</th><th>Alias</th><th>CBU</th><th>Banco</th><th>Estado</th><th>Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in retiros %}
+        {% if r.estado != 'enviado' %}
+        <tr>
+          <td>{{ r.usuario.username }}</td>
+          <td>${{ r.monto }}</td>
+          <td>{{ r.alias }}</td>
+          <td>{{ r.cbu }}</td>
+          <td>{{ r.banco }}</td>
+          <td>{{ r.estado }}</td>
+          <td>
+            {% if r.estado == 'pendiente' %}
+              <form method="post" action="{% url 'aprobar_retiro' r.id %}">
+                {% csrf_token %}
+                <button type="submit">Aprobar</button>
+              </form>
+            {% endif %}
+            {% if r.estado == 'aprobado' %}
+              <form method="post" action="{% url 'enviar_retiro' r.id %}">
+                {% csrf_token %}
+                <button type="submit">Marcar como enviado</button>
+              </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endif %}
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- 🧾 Depósitos pendientes -->
+  <h2>Depósitos pendientes</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Usuario</th><th>Monto</th><th>Comprobante</th><th>Fecha</th><th>Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for d in depositos %}
+        {% if d.estado == 'pendiente' %}
+        <tr>
+          <td>{{ d.usuario.username }}</td>
+          <td>${{ d.monto }}</td>
+          <td><a href="{{ d.comprobante.url }}" target="_blank">Ver</a></td>
+          <td>{{ d.fecha_subida }}</td>
+          <td>
+            <form method="post" action="{% url 'aprobar_deposito' d.id %}">
+              {% csrf_token %}
+              <button type="submit">Aprobar</button>
+            </form>
+          </td>
+        </tr>
+        {% endif %}
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <form method="GET" action="{% url 'exportar_movimientos_admin' %}">
+  Desde: <input type="date" name="desde">
+  Hasta: <input type="date" name="hasta">
+  Moneda:
+  <select name="moneda">
+    <option value="">Todas</option>
+    <option value="ARS">ARS</option>
+    <option value="USDT">USDT</option>
+    <option value="USD">USD</option>
+  </select>
+  Tipo:
+  <select name="tipo">
+    <option value="">Todos</option>
+    <option value="deposito">Depósito</option>
+    <option value="retiro">Retiro</option>
+    <option value="compra">Compra</option>
+    <option value="venta">Venta</option>
+    <option value="ajuste">Ajuste</option>
+  </select>
+  <button type="submit">📥 Exportar movimientos</button>
+</form>
+
+  <!-- 📊 Últimos movimientos -->
+  <h2>Últimos movimientos</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Usuario</th><th>Tipo</th><th>Moneda</th><th>Monto</th><th>Descripción</th><th>Fecha</th><th>ID</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for m in movimientos %}
+      <tr>
+        
+        <td>{{ m.usuario.username }}</td>
+        <td>{{ m.tipo }}</td>
+        <td>{{ m.moneda }}</td>
+        <td>{{ m.monto }}</td>
+        <td>{{ m.descripcion }}</td>
+        <td>{{ m.fecha }}</td>
+        <td>{{ m.codigo }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+</body>
+</html>

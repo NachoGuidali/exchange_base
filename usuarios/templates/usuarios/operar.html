@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+<h2>Operaciones: Comprar / Vender Monedas</h2>
+<div class="saldo-box">
+    <h3>📌 Tus saldos:</h3>
+    <p><strong>ARS:</strong> ${{ request.user.saldo_ars }}</p>
+    <p><strong>USDT:</strong> {{ request.user.saldo_usdt }}</p>
+    <p><strong>USD:</strong> {{ request.user.saldo_usd|default:"0.00" }}</p>
+  </div>
+<style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 2em;
+    }
+    form {
+      margin-bottom: 2em;
+      padding: 1em;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+    }
+    label {
+      display: block;
+      margin-bottom: 1em;
+    }
+    button {
+      padding: 0.5em 1em;
+      font-size: 16px;
+    }
+  </style>
+
+<!-- Formulario COMPRA -->
+<form method="POST" id="form-compra" onsubmit="return confirmarOperacion('compra')">
+  {% csrf_token %}
+  <input type="hidden" name="operacion" value="compra">
+
+  <h3>Comprar moneda</h3>
+
+  <label>Moneda:
+    <select name="moneda" id="moneda-compra">
+      <option value="USDT">USDT - Cotización: {{ cot_usdt.venta }} ARS</option>
+      <option value="USD">USD - Cotización: {{ cot_usd.venta }} ARS</option>
+    </select>
+  </label><br><br>
+
+  <label>Monto en ARS:
+    <input type="number" name="monto" step="0.01" id="monto-compra" required>
+  </label><br><br>
+
+  <button type="submit" id="btn-compra">Comprar</button>
+</form>
+
+<!-- Formulario VENTA -->
+<form method="POST" id="form-venta" onsubmit="return confirmarOperacion('venta')">
+  {% csrf_token %}
+  <input type="hidden" name="operacion" value="venta">
+
+  <h3>Vender moneda</h3>
+
+  <label>Moneda:
+    <select name="moneda" id="moneda-venta">
+      <option value="USDT">USDT - Cotización: {{ cot_usdt.compra }} ARS</option>
+      <option value="USD">USD - Cotización: {{ cot_usd.compra }} ARS</option>
+    </select>
+  </label><br><br>
+
+  <label>Monto en moneda:
+    <input type="number" name="monto" step="0.01" id="monto-venta" required>
+  </label><br><br>
+
+  <button type="submit" id="btn-venta">Vender</button>
+</form>
+
+<!-- JS para confirmación y evitar doble submit -->
+<script>
+function confirmarOperacion(tipo) {
+  const formId = tipo === 'compra' ? 'form-compra' : 'form-venta';
+  const monedaId = tipo === 'compra' ? 'moneda-compra' : 'moneda-venta';
+  const montoId = tipo === 'compra' ? 'monto-compra' : 'monto-venta';
+  const botonId = tipo === 'compra' ? 'btn-compra' : 'btn-venta';
+
+  const moneda = document.getElementById(monedaId).value;
+  const monto = parseFloat(document.getElementById(montoId).value);
+
+  if (!monto || monto <= 0) {
+    alert("Ingresá un monto válido.");
+    return false;
+  }
+
+  const mensaje = tipo === 'compra'
+    ? `¿Confirmás la COMPRA de ${moneda} por ${monto.toFixed(2)} ARS?`
+    : `¿Confirmás la VENTA de ${monto.toFixed(2)} ${moneda}?`;
+
+  if (!confirm(mensaje)) return false;
+
+  // Evitar doble submit
+  const boton = document.getElementById(botonId);
+  boton.disabled = true;
+  boton.textContent = "Procesando...";
+  return true;
+}
+</script>
+
+</body>
+</html>

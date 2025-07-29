@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>dashboard</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 2em;
+    }
+    .saldo-box {
+      border: 1px solid #ccc;
+      padding: 1em;
+      border-radius: 10px;
+      margin-bottom: 1em;
+    }
+    .actions a {
+      display: block;
+      margin-bottom: 10px;
+      padding: 10px;
+      background: #007bff;
+      color: white;
+      text-decoration: none;
+      width: 250px;
+      border-radius: 5px;
+    }
+    #cuadro-cotizaciones {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  background-color: #1f1f1f;
+  color: white;
+  padding: 10px 15px;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+  font-size: 13px;
+  z-index: 999;
+  min-width: 180px;
+}
+#cuadro-cotizaciones h4 {
+  margin-top: 0;
+  font-size: 14px;
+  text-align: center;
+  margin-bottom: 8px;
+  color: #7cd1ff;
+}
+#cuadro-cotizaciones table {
+  width: 100%;
+  font-size: 12px;
+}
+#cuadro-cotizaciones td {
+  padding: 2px 5px;
+}
+#cuadro-cotizaciones .nombre {
+  font-weight: bold;
+}
+  </style>
+</head>
+<body>
+<div id="cuadro-cotizaciones">
+  <h4>Cotizaciones</h4>
+  <table>
+    <tr>
+      <td class="nombre">USDT:</td>
+      <td>Compra:</td>
+      <td>${{ cot_usdt.compra }}</td>
+    </tr>
+    <tr>
+      <td></td>
+      <td>Venta:</td>
+      <td>${{ cot_usdt.venta }}</td>
+    </tr>
+    <tr>
+      <td class="nombre">USD:</td>
+      <td>Compra:</td>
+      <td>${{ cot_usd.compra }}</td>
+    </tr>
+    <tr>
+      <td></td>
+      <td>Venta:</td>
+      <td>${{ cot_usd.venta }}</td>
+    </tr>
+  </table>
+</div>
+  <h2>Bienvenido, {{ request.user.username }}</h2>
+
+  <div class="saldo-box">
+    <h3>📌 Tus saldos:</h3>
+    <p><strong>ARS:</strong> ${{ request.user.saldo_ars }}</p>
+    <p><strong>USDT:</strong> {{ request.user.saldo_usdt }}</p>
+    <p><strong>USD:</strong> {{ request.user.saldo_usd|default:"0.00" }}</p>
+  </div>
+ 
+  <div class="notificaciones">
+  <h3>🔔 Notificaciones recientes</h3>
+  <ul>
+    {% for n in notificaciones %}
+      <li>
+        {{ n.fecha|date:"d/m/Y H:i" }} - {{ n.mensaje }}
+        {% if not n.leida %} <strong>(nuevo)</strong> {% endif %}
+      </li>
+    {% empty %}
+      <li>No hay notificaciones.</li>
+    {% endfor %}
+  </ul>
+</div>
+
+
+  <div class="actions">
+    <h3>🔧 Acciones rápidas:</h3>
+    <a href="{% url 'operar' %}">🔁 Comprar / Vender</a>
+    <a href="{% url 'agregar_saldo' %}">💸 Agregar Saldo</a>
+    <a href="{% url 'solicitar_retiro' %}">💸 Solicitar Retiro</a>
+    <a href="{% url 'exportar_movimientos_usuario' %}" class="btn">📥 Exportar mis movimientos (CSV)</a>
+
+    
+    
+   
+    
+    <a href="{% url 'logout' %}">🚪 Cerrar sesión</a>
+  </div>
+
+
+<h3>Historial de movimientos</h3>
+<table>
+  <tr>
+    <th>Fecha</th>
+    <th>Tipo</th>
+    <th>Moneda</th>
+    <th>Monto</th>
+    <th>Saldo antes</th>
+    <th>Saldo Despues</th>
+    <th>Descripción</th>
+    <th>ID</th>
+  </tr>
+  {% for m in movimientos %}
+    <tr>
+      <td>{{ m.fecha }}</td>
+      <td>{{ m.get_tipo_display }}</td>
+      <td>{{ m.moneda }}</td>
+      <td>${{ m.monto }}</td>
+      <td>${{ m.saldo_antes }}</td>
+      <td>${{ m.saldo_despues }}</td>
+      <td>{{ m.descripcion }}</td>
+      <td>{{ m.codigo }}</td>
+    </tr>
+  {% empty %}
+    <tr><td colspan="5">Sin movimientos aún.</td></tr>
+  {% endfor %}
+</table>
+
+
+</body>
+</html>
