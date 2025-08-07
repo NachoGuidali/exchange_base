@@ -55,9 +55,72 @@
 #cuadro-cotizaciones .nombre {
   font-weight: bold;
 }
+
+
+.notificacion-dropdown {
+    display: none;
+    position: absolute;
+    right: 10px;
+    background: white;
+    color: black;
+    border: 1px solid #ccc;
+    width: 300px;
+    z-index: 1000;
+    max-height: 300px;
+    overflow-y: auto;
+  }
+  .notificacion-dropdown ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .notificacion-dropdown li {
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+  }
+  .notificacion-icon {
+    position: relative;
+    cursor: pointer;
+  }
+  .notificacion-badge {
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    background: red;
+    color: white;
+    font-size: 12px;
+    border-radius: 50%;
+    padding: 3px 6px;
+  }
   </style>
 </head>
 <body>
+ <div id="notificaciones-container" style="position: relative;">
+  <button onclick="toggleNotificaciones()" class="campana-btn">
+    🔔
+    <span id="notificaciones-indicador" style="
+      position: absolute;
+      top: 0;
+      left: 0;
+      background: red;
+      color: white;
+      border-radius: 50%;
+      width: 16px;
+      height: 16px;
+      font-size: 12px;
+      text-align: center;
+      line-height: 16px;
+      display: none;
+    ">0</span>
+  </button>
+
+  <div id="notificaciones-box" style="display: none;">
+    <ul id="notificaciones-lista"></ul>
+  </div>
+</div>
+
+
+<div id="notificacionDropdown" class="notificacion-dropdown"></div>
 <div id="cuadro-cotizaciones">
   <h4>Cotizaciones</h4>
   <table>
@@ -152,4 +215,49 @@
 
 
 </body>
+
+<script>
+function toggleNotificaciones() {
+  const box = document.getElementById('notificaciones-box');
+  box.style.display = box.style.display === 'none' ? 'block' : 'none';
+
+  if (box.style.display === 'block') {
+    fetch('/notificaciones/ajax/')
+      .then(response => response.json())
+      .then(data => {
+        const lista = document.getElementById('notificaciones-lista');
+        lista.innerHTML = '';
+
+        data.notificaciones.forEach(n => {
+          const li = document.createElement('li');
+          li.textContent = `${n.fecha}: ${n.mensaje}`;
+          lista.appendChild(li);
+        });
+
+        // Ocultamos indicador al abrir notificaciones
+        document.getElementById('notificaciones-indicador').style.display = 'none';
+      });
+  }
+}
+
+// Consulta cuántas no leídas hay
+function verificarNotificaciones() {
+  fetch('/notificaciones/contar/')
+    .then(response => response.json())
+    .then(data => {
+      const indicador = document.getElementById('notificaciones-indicador');
+      if (data.no_leidas > 0) {
+        indicador.textContent = data.no_leidas > 9 ? '9+' : data.no_leidas;
+        indicador.style.display = 'block';
+      } else {
+        indicador.style.display = 'none';
+      }
+    });
+}
+
+// Ejecutar al cargar la página
+document.addEventListener('DOMContentLoaded', verificarNotificaciones);
+</script>
+
+
 </html>

@@ -6,7 +6,7 @@
     <title>Document</title>
 </head>
 <body>
-<h2>Solicitar retiro</h2>
+<h2>Solicitar retiro ARS</h2>
 <form method="POST">
   {% csrf_token %}
   <label>Monto a retirar:</label>
@@ -30,5 +30,26 @@
 {% if success %}
   <p style="color:green;">{{ success }}</p>
 {% endif %}
+
+
+<form method="POST" action="{% url 'solicitar_retiro_cripto' %}">
+  {% csrf_token %}
+  <label>Moneda:
+    <select name="moneda">
+      <option value="USDT">USDT</option>
+      <option value="USD">USD</option>
+    </select>
+  </label><br>
+
+  <label>Monto:
+    <input type="number" name="monto" step="0.01" required>
+  </label><br>
+
+  <label>Dirección de Wallet:
+    <input type="text" name="direccion_wallet" required>
+  </label><br>
+
+  <button type="submit">Solicitar retiro</button>
+</form>
 
 </html>

@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import registro, dashboard, panel_admin, cambiar_estado_verificacion, agregar_saldo, panel_depositos, aprobar_deposito, historial_usuario, operar, enviar_retiro, aprobar_retiro, solicitar_retiro, exportar_historial_usuario, exportar_movimientos_admin, exportar_movimientos_usuario
+from .views import registro, dashboard, panel_admin, cambiar_estado_verificacion, agregar_saldo, panel_depositos, aprobar_deposito, historial_usuario, operar, enviar_retiro, aprobar_retiro, solicitar_retiro, exportar_historial_usuario, exportar_movimientos_admin, exportar_movimientos_usuario, obtener_notificaciones, contar_notificaciones, solicitar_retiro_cripto, aprobar_retiro_cripto, panel_retiros
 urlpatterns = [
     path('registro/', registro, name='registro'),
     path('dashboard/', dashboard, name='dashboard'),
@@ -17,6 +17,12 @@ urlpatterns = [
     path('exportar-movimientos/', exportar_movimientos_usuario, name='exportar_movimientos_usuario'),
     path('admin-dashboard/exportar-movimientos/', exportar_movimientos_admin, name='exportar_movimientos_admin'),
     path('admin-dashboard/historial-usuario/<int:user_id>/exportar/', exportar_historial_usuario, name='exportar_historial_usuario'),
+    path('notificaciones/ajax/', obtener_notificaciones, name='ajax_obtener_notificaciones'),
+    path('notificaciones/contar/', contar_notificaciones, name='contar_notificaciones'),    
+    path('solicitar-retiro-cripto/', solicitar_retiro_cripto, name='solicitar_retiro_cripto'),
+    path('admin-dashboard/retiro-cripto/aprobar/<int:id>/', aprobar_retiro_cripto, name='aprobar_retiro_cripto'),
+    path('admin-dashboard/retiros/', panel_retiros, name='panel_retiros'),
+
 
 
 ]

@@ -4,8 +4,10 @@ from django.http import HttpResponseRedirect
 from .forms import RegistroUsuarioForm, DepositoARSForm
 from django.contrib import messages
 from django.urls import reverse
-from .models import Usuario, DepositoARS, Movimiento, Cotizacion, RetiroARS, Notificacion
+from .models import Usuario, DepositoARS, Movimiento, Cotizacion, RetiroARS, Notificacion, RetiroCrypto
 from decimal import Decimal
+from django.views.decorators.http import require_GET
+from django.http import JsonResponse
 import logging
 import csv
 from django.http import HttpResponse
@@ -45,13 +47,14 @@ def dashboard(request):
     cot_usdt = Cotizacion.objects.filter(moneda='USDT').order_by('-fecha').first()
     cot_usd = Cotizacion.objects.filter(moneda='USD').order_by('-fecha').first()
     notificaciones = Notificacion.objects.filter(usuario=request.user).order_by('-fecha')[:10]
-
+    notificaciones_no_leidas = Notificacion.objects.filter(usuario=request.user, leida=False)
 
     return render(request, 'usuarios/dashboard.html', {
         'movimientos': movimientos,
         'cot_usdt': cot_usdt,
         'cot_usd': cot_usd,
         'notificaciones': notificaciones,
+        'notificaciones_no_leidas': notificaciones_no_leidas,
     })
 
 
@@ -498,7 +501,7 @@ def exportar_movimientos_usuario(request):
     response['Content-Disposition'] = 'attachment; filename="movimientos_usuario.csv"'
 
     writer = csv.writer(response)
-    writer.writerow(['ID','Fecha', 'Tipo', 'Moneda', 'Monto', 'Saldo antes', 'Saldo después', 'Descripción'])
+    writer.writerow(['Fecha','ID', 'Tipo', 'Moneda', 'Monto', 'Saldo antes', 'Saldo después', 'Descripción'])
 
     for m in movimientos:
         writer.writerow([
@@ -582,3 +585,102 @@ def exportar_historial_usuario(request, user_id):
         ])
 
     return response
+
+
+@login_required
+def obtener_notificaciones(request):
+    queryset = Notificacion.objects.filter(usuario=request.user).order_by('-fecha')
+    notificaciones = list(queryset[:10])  # slicing primero
+
+    # marcar como leídas solo esas
+    Notificacion.objects.filter(id__in=[n.id for n in notificaciones]).update(leida=True)
+
+    data = [
+        {
+            'mensaje': n.mensaje,
+            'fecha': n.fecha.strftime('%d/%m/%Y %H:%M'),
+        }
+        for n in notificaciones
+    ]
+    return JsonResponse({'notificaciones': data})
+
+
+@login_required
+def contar_notificaciones(request):
+    cantidad = Notificacion.objects.filter(usuario=request.user, leida=False).count()
+    return JsonResponse({'no_leidas': cantidad})
+
+@login_required
+def solicitar_retiro_cripto(request):
+    if request.method == 'POST':
+        moneda = request.POST.get('moneda')
+        monto = Decimal(request.POST.get('monto', '0'))
+        wallet = request.POST.get('direccion_wallet')
+
+        saldo = getattr(request.user, f'saldo_{moneda.lower()}')
+
+        if monto > saldo:
+            messages.error(request, "No tenés saldo suficiente.")
+            return redirect('dashboard')
+
+        RetiroCrypto.objects.create(
+            usuario=request.user,
+            moneda=moneda,
+            monto=monto,
+            direccion_wallet=wallet,
+            estado='pendiente'
+        )
+
+        setattr(request.user, f'saldo_{moneda.lower()}', saldo - monto)
+        request.user.save()
+
+        registrar_movimiento(
+            usuario=request.user,
+            tipo='retiro',
+            moneda=moneda,
+            monto=monto,
+            descripcion=f'Solicitud de retiro {moneda} - pendiente',
+            saldo_antes=saldo,
+            saldo_despues=saldo - monto
+        )
+
+        crear_notificacion(request.user, f"Tu retiro de {monto} {moneda} está pendiente de aprobación.")
+        messages.success(request, f"Solicitud de retiro enviada: {monto} {moneda}")
+        return redirect('dashboard')
+
+@user_passes_test(es_admin)
+def aprobar_retiro_cripto(request, id):
+    retiro = get_object_or_404(RetiroCrypto, id=id)
+
+    if request.method == 'POST' and retiro.estado == 'pendiente':
+        retiro.estado = 'enviado'
+        retiro.admin_responsable = request.user
+        retiro.save()
+
+        saldo_actual = retiro.usuario.saldo_usdt if retiro.moneda == 'USDT' else retiro.usuario.saldo_usd
+        registrar_movimiento(
+            usuario=retiro.usuario,
+            tipo='retiro',
+            moneda=retiro.moneda,
+            monto=retiro.monto,
+            descripcion=f'Retiro cripto aprobado por admin a {retiro.direccion_wallet}',
+            saldo_antes=saldo_actual,
+            saldo_despues=saldo_actual
+        )
+        crear_notificacion(retiro.usuario, f"Tu retiro de {retiro.monto} {retiro.moneda} fue enviado.")
+        messages.success(request, f"Retiro aprobado y enviado.")
+
+    return redirect('panel_admin')
+
+@user_passes_test(es_admin)
+def panel_retiros(request):
+    retiros_ars = RetiroARS.objects.filter(estado='pendiente').order_by('-fecha_solicitud')
+    retiros_crypto = RetiroCrypto.objects.filter(estado='pendiente').order_by('-fecha_solicitud')
+
+
+
+    return render(request, 'usuarios/panel_retiros.html', {
+        'retiros_ars': retiros_ars,
+        'retiros_crypto': retiros_crypto,
+    })
+

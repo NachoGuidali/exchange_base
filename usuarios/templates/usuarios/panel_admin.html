@@ -101,7 +101,36 @@
       {% endfor %}
     </tbody>
   </table>
-
+<h2>Retiros CRYPTO</h2>
+<table>
+  <tr>
+    <th>Usuario</th>
+    <th>Moneda</th>
+    <th>Monto</th>
+    <th>Wallet</th>
+    <th>Estado</th>
+    <th>Acciones</th>
+  </tr>
+  {% for retiro in retiros_crypto %}
+  <tr>
+    <td>{{ retiro.usuario.username }}</td>
+    <td>{{ retiro.moneda }}</td>
+    <td>{{ retiro.monto }}</td>
+    <td>{{ retiro.direccion_wallet }}</td>
+    <td>{{ retiro.estado }}</td>
+    <td>
+      {% if retiro.estado == 'pendiente' %}
+        <form method="post" action="{% url 'aprobar_retiro_cripto' retiro.id %}" style="display:inline;">
+        {% csrf_token %}
+        <button type="submit">✅ Aprobar</button>
+      </form>
+      {% endif %}
+    </td>
+  </tr>
+  {% empty %}
+  <tr><td colspan="7">No hay retiros CRYPTO pendientes.</td></tr>
+  {% endfor %}
+</table>
   <!-- 🧾 Depósitos pendientes -->
   <h2>Depósitos pendientes</h2>
   <table>

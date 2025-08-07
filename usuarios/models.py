@@ -120,3 +120,21 @@ class Notificacion(models.Model):
 
     def __str__(self):
         return f"[{self.usuario.username}] {self.mensaje[:40]}"    
+
+class RetiroCrypto(models.Model):
+    MONEDAS = (
+        ('USDT', 'USDT'),
+        ('USD', 'USD'),
+    )        
+
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    moneda = models.CharField(max_length=4, choices=MONEDAS)
+    monto = models.DecimalField(max_digits=12, decimal_places=2)
+    direccion_wallet = models.CharField(max_length=255)
+    estado = models.CharField(max_length=20, choices=[('pendiente', 'Pendiente'), ('enviado', 'Enviado'), ('rechazado', 'Rechazado')], default='pendiente')
+    fecha_solicitud = models.DateTimeField(auto_now_add=True)
+    fecha_actualizacion = models.DateTimeField(auto_now=True)
+    admin_responsable =models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='retiros_cripto_aprobados')
+
+    def __str__(self):
+        return f"{self.usuario.username} - {self.moneda} - {self.monto}"
