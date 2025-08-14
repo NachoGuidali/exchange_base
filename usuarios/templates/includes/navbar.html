@@ -1,0 +1,45 @@
+<header class="border-b border-ink-200 bg-white/80 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+  <nav class="container flex h-16 items-center justify-between gap-4">
+    <a href="{% url 'dashboard' %}" class="group inline-flex items-center gap-2">
+      <span class="inline-flex h-8 w-8 items-center justify-center rounded-md bg-brand-600 text-white font-semibold shadow-soft group-hover:animate-pulseBorder">EX</span>
+      <span class="text-lg font-semibold tracking-tight">Exchange</span>
+    </a>
+
+    <button class="lg:hidden rounded-md border border-ink-200 p-2" data-mobile-toggle aria-label="Toggle menu">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" /></svg>
+    </button>
+
+    <ul class="hidden items-center gap-6 lg:flex">
+      <li><a href="{% url 'dashboard' %}" class="text-ink-600 hover:text-ink-900">Dashboard</a></li>
+      <li><a href="{% url 'operar' %}" class="text-ink-600 hover:text-ink-900">Operar</a></li>
+      {% if request.user.is_staff or request.user.is_superuser %}
+      <li><a href="{% url 'panel_admin' %}" class="text-ink-600 hover:text-ink-900">Admin</a></li>
+      {% endif %}
+    </ul>
+
+    <div class="hidden items-center gap-2 lg:flex">
+      {% if request.user.is_authenticated %}
+        <a href="{% url 'logout' %}" class="rounded-md border border-ink-200 px-3 py-2 text-sm">Logout</a>
+      {% else %}
+        <a href="{% url 'login' %}" class="rounded-md px-3 py-2 text-sm text-ink-700">Sign in</a>
+        <a href="{% url 'registro' %}" class="rounded-md bg-brand-600 px-3 py-2 text-sm font-medium text-white shadow-soft hover:bg-brand-700">Crear cuenta</a>
+      {% endif %}
+    </div>
+  </nav>
+
+  <div class="container lg:hidden">
+    <ul class="hidden flex-col gap-4 py-4" data-mobile-menu>
+      <li><a href="{% url 'dashboard' %}" class="block text-ink-700">Dashboard</a></li>
+      <li><a href="{% url 'operar' %}" class="block text-ink-700">Operar</a></li>
+      {% if request.user.is_staff or request.user.is_superuser %}
+        <li><a href="{% url 'panel_admin' %}" class="block text-ink-700">Admin</a></li>
+      {% endif %}
+      {% if request.user.is_authenticated %}
+        <li><a href="{% url 'logout' %}" class="block text-ink-700">Logout</a></li>
+      {% else %}
+        <li><a href="{% url 'login' %}" class="block text-ink-700">Sign in</a></li>
+        <li><a href="{% url 'registro' %}" class="block text-ink-700">Crear cuenta</a></li>
+      {% endif %}
+    </ul>
+  </div>
+</header>

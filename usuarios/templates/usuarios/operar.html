@@ -1,110 +1,92 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
-</head>
-<body>
-<h2>Operaciones: Comprar / Vender Monedas</h2>
-<div class="saldo-box">
-    <h3>📌 Tus saldos:</h3>
-    <p><strong>ARS:</strong> ${{ request.user.saldo_ars }}</p>
-    <p><strong>USDT:</strong> {{ request.user.saldo_usdt }}</p>
-    <p><strong>USD:</strong> {{ request.user.saldo_usd|default:"0.00" }}</p>
+{% extends "base.html" %}
+{% block title %}Operar — Exchange{% endblock %}
+{% block meta_description %}Compra y vende USDT/USD con tus saldos disponibles.{% endblock %}
+
+{% block content %}
+<section class="grid gap-6 lg:grid-cols-12">
+  <div class="lg:col-span-8 space-y-6">
+    <div class="rounded-xl border border-ink-200 bg-white p-5 shadow-sm">
+      <h1 class="mb-3 text-2xl font-semibold">Operaciones</h1>
+      <div class="mb-4 grid grid-cols-3 gap-4 text-sm">
+        <div class="rounded-lg border border-ink-100 p-3">
+          <p class="text-ink-500">Saldo ARS</p>
+          <p class="text-lg font-semibold">${{ request.user.saldo_ars }}</p>
+        </div>
+        <div class="rounded-lg border border-ink-100 p-3">
+          <p class="text-ink-500">Saldo USDT</p>
+          <p class="text-lg font-semibold">{{ request.user.saldo_usdt }}</p>
+        </div>
+        <div class="rounded-lg border border-ink-100 p-3">
+          <p class="text-ink-500">Saldo USD</p>
+          <p class="text-lg font-semibold">{{ request.user.saldo_usd|default:"0.00" }}</p>
+        </div>
+      </div>
+
+      <div class="grid gap-4 sm:grid-cols-2">
+        <article class="rounded-lg border border-ink-200 p-4">
+          <h2 class="mb-2 text-lg font-semibold">Comprar</h2>
+          <form method="POST" class="space-y-3" onsubmit="this.querySelector('[name=operacion]').value='compra'">
+            {% csrf_token %}
+            <input type="hidden" name="operacion" value="compra" />
+            <div>
+              <label class="mb-1 block text-sm text-ink-600">Moneda</label>
+              <select name="moneda" class="w-full rounded-md border border-ink-200 px-3 py-2 focus:ring-2 focus:ring-brand-500">
+                <option value="USDT">USDT — Venta: ${{ cot_usdt.venta }}</option>
+                <option value="USD">USD — Venta: ${{ cot_usd.venta }}</option>
+              </select>
+            </div>
+            <div>
+              <label class="mb-1 block text-sm text-ink-600">Monto en ARS</label>
+              <input name="monto" step="0.01" type="number" required class="w-full rounded-md border border-ink-200 px-3 py-2 focus:ring-2 focus:ring-brand-500" />
+            </div>
+            <button class="w-full rounded-md bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-700">Comprar</button>
+          </form>
+        </article>
+
+        <article class="rounded-lg border border-ink-200 p-4">
+          <h2 class="mb-2 text-lg font-semibold">Vender</h2>
+          <form method="POST" class="space-y-3" onsubmit="this.querySelector('[name=operacion]').value='venta'">
+            {% csrf_token %}
+            <input type="hidden" name="operacion" value="venta" />
+            <div>
+              <label class="mb-1 block text-sm text-ink-600">Moneda</label>
+              <select name="moneda" class="w-full rounded-md border border-ink-200 px-3 py-2 focus:ring-2 focus:ring-brand-500">
+                <option value="USDT">USDT — Compra: ${{ cot_usdt.compra }}</option>
+                <option value="USD">USD — Compra: ${{ cot_usd.compra }}</option>
+              </select>
+            </div>
+            <div>
+              <label class="mb-1 block text-sm text-ink-600">Monto a vender (USDT/USD)</label>
+              <input name="monto" step="0.01" type="number" required class="w-full rounded-md border border-ink-200 px-3 py-2 focus:ring-2 focus:ring-brand-500" />
+            </div>
+            <button class="w-full rounded-md bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-700">Vender</button>
+          </form>
+        </article>
+      </div>
+    </div>
+
+    <div class="rounded-xl border border-ink-200 bg-white p-5 shadow-sm">
+      <h2 class="mb-3 text-lg font-semibold">Cotizaciones</h2>
+      <div class="grid gap-4 sm:grid-cols-2">
+        <div class="rounded-lg border border-ink-100 p-3 text-sm">
+          <p class="font-medium">USDT</p>
+          <p class="text-ink-500">Compra: ${{ cot_usdt.compra }}</p>
+          <p class="text-ink-500">Venta: ${{ cot_usdt.venta }}</p>
+        </div>
+        <div class="rounded-lg border border-ink-100 p-3 text-sm">
+          <p class="font-medium">USD</p>
+          <p class="text-ink-500">Compra: ${{ cot_usd.compra }}</p>
+          <p class="text-ink-500">Venta: ${{ cot_usd.venta }}</p>
+        </div>
+      </div>
+    </div>
   </div>
-<style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 2em;
-    }
-    form {
-      margin-bottom: 2em;
-      padding: 1em;
-      border: 1px solid #ccc;
-      border-radius: 10px;
-    }
-    label {
-      display: block;
-      margin-bottom: 1em;
-    }
-    button {
-      padding: 0.5em 1em;
-      font-size: 16px;
-    }
-  </style>
 
-<!-- Formulario COMPRA -->
-<form method="POST" id="form-compra" onsubmit="return confirmarOperacion('compra')">
-  {% csrf_token %}
-  <input type="hidden" name="operacion" value="compra">
-
-  <h3>Comprar moneda</h3>
-
-  <label>Moneda:
-    <select name="moneda" id="moneda-compra">
-      <option value="USDT">USDT - Cotización: {{ cot_usdt.venta }} ARS</option>
-      <option value="USD">USD - Cotización: {{ cot_usd.venta }} ARS</option>
-    </select>
-  </label><br><br>
-
-  <label>Monto en ARS:
-    <input type="number" name="monto" step="0.01" id="monto-compra" required>
-  </label><br><br>
-
-  <button type="submit" id="btn-compra">Comprar</button>
-</form>
-
-<!-- Formulario VENTA -->
-<form method="POST" id="form-venta" onsubmit="return confirmarOperacion('venta')">
-  {% csrf_token %}
-  <input type="hidden" name="operacion" value="venta">
-
-  <h3>Vender moneda</h3>
-
-  <label>Moneda:
-    <select name="moneda" id="moneda-venta">
-      <option value="USDT">USDT - Cotización: {{ cot_usdt.compra }} ARS</option>
-      <option value="USD">USD - Cotización: {{ cot_usd.compra }} ARS</option>
-    </select>
-  </label><br><br>
-
-  <label>Monto en moneda:
-    <input type="number" name="monto" step="0.01" id="monto-venta" required>
-  </label><br><br>
-
-  <button type="submit" id="btn-venta">Vender</button>
-</form>
-
-<!-- JS para confirmación y evitar doble submit -->
-<script>
-function confirmarOperacion(tipo) {
-  const formId = tipo === 'compra' ? 'form-compra' : 'form-venta';
-  const monedaId = tipo === 'compra' ? 'moneda-compra' : 'moneda-venta';
-  const montoId = tipo === 'compra' ? 'monto-compra' : 'monto-venta';
-  const botonId = tipo === 'compra' ? 'btn-compra' : 'btn-venta';
-
-  const moneda = document.getElementById(monedaId).value;
-  const monto = parseFloat(document.getElementById(montoId).value);
-
-  if (!monto || monto <= 0) {
-    alert("Ingresá un monto válido.");
-    return false;
-  }
-
-  const mensaje = tipo === 'compra'
-    ? `¿Confirmás la COMPRA de ${moneda} por ${monto.toFixed(2)} ARS?`
-    : `¿Confirmás la VENTA de ${monto.toFixed(2)} ${moneda}?`;
-
-  if (!confirm(mensaje)) return false;
-
-  // Evitar doble submit
-  const boton = document.getElementById(botonId);
-  boton.disabled = true;
-  boton.textContent = "Procesando...";
-  return true;
-}
-</script>
-
-</body>
-</html>
+  <aside class="lg:col-span-4 space-y-6">
+    <div class="rounded-xl border border-ink-200 bg-white p-4">
+      <h2 class="mb-3 text-lg font-semibold">Ayuda</h2>
+      <p class="text-sm text-ink-600">Selecciona la moneda y el monto. Para Comprar ingresas ARS; para Vender ingresas la cantidad de USDT/USD.</p>
+    </div>
+  </aside>
+</section>
+{% endblock %}

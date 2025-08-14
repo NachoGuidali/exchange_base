@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <title>{% block title %}Exchange — Fast Crypto Trading{% endblock %}</title>
+  <meta name="description" content="{% block meta_description %}Trade crypto pairs with real‑time data and simple order entry.{% endblock %}" />
+  <link rel="canonical" href="{% block canonical %}{{ request.build_absolute_uri }}{% endblock %}" />
+
+  
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="{{ request.build_absolute_uri|default:'' }}" />
+
+  <meta name="twitter:card" content="summary_large_image" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        container: { center: true, padding: '1rem' },
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff', 100: '#e0e7ff', 200: '#c7d2fe', 300: '#a5b4fc',
+              400: '#818cf8', 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca',
+              800: '#3730a3', 900: '#312e81',
+            },
+            ink: {
+              50: '#f8fafc', 100: '#f1f5f9', 200: '#e2e8f0', 300: '#cbd5e1',
+              400: '#94a3b8', 500: '#64748b', 600: '#475569', 700: '#334155',
+              800: '#1f2937', 900: '#0f172a',
+            },
+            success: '#16a34a', danger: '#ef4444', warning: '#f59e0b'
+          },
+          boxShadow: {
+            soft: '0 10px 30px -10px rgba(79,70,229,0.25)'
+          },
+          keyframes: {
+            float: { '0%,100%': { transform: 'translateY(0)' }, '50%': { transform: 'translateY(-6px)' } },
+            pulseBorder: {
+              '0%,100%': { boxShadow: '0 0 0 0 rgba(99,102,241,0.4)' },
+              '50%': { boxShadow: '0 0 0 10px rgba(99,102,241,0)' },
+            },
+          },
+          animation: {
+            float: 'float 6s ease-in-out infinite',
+            pulseBorder: 'pulseBorder 2.5s ease-out infinite',
+          },
+        }
+      }
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root { --bg: #0b1020; --card: #0f172a; --card-2: #111827; --ring:#4f46e5; }
+    html { font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; }
+  </style>
+  {% block head_extra %}{% endblock %}
+  {% block json_ld %}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "Exchange",
+    "url": "{{ request.build_absolute_uri|default:'' }}"
+  }
+  </script>
+  {% endblock %}
+</head>
+<body class="min-h-screen bg-ink-50 text-ink-900">
+  <div class="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+    <div class="absolute -top-24 right-1/2 h-64 w-64 rounded-full bg-brand-400/30 blur-3xl animate-float"></div>
+    <div class="absolute -bottom-24 left-1/2 h-72 w-72 rounded-full bg-brand-600/20 blur-3xl animate-float" style="animation-delay:1.2s"></div>
+  </div>
+
+  {% include "includes/navbar.html" %}
+
+  <main id="main" class="container py-8 lg:py-12">
+    {% block content %}{% endblock %}
+  </main>
+
+  {% include "includes/footer.html" %}
+
+  {% block scripts %}
+  <script>
+    const btn = document.querySelector('[data-mobile-toggle]');
+    const menu = document.querySelector('[data-mobile-menu]');
+    btn && btn.addEventListener('click', () => { menu?.classList.toggle('hidden'); });
+  </script>
+  {% endblock %}
+</body>
+</html>

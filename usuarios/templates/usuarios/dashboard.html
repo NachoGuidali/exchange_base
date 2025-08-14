@@ -1,227 +1,142 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>dashboard</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 2em;
-    }
-    .saldo-box {
-      border: 1px solid #ccc;
-      padding: 1em;
-      border-radius: 10px;
-      margin-bottom: 1em;
-    }
-    .actions a {
-      display: block;
-      margin-bottom: 10px;
-      padding: 10px;
-      background: #007bff;
-      color: white;
-      text-decoration: none;
-      width: 250px;
-      border-radius: 5px;
-    }
-    #cuadro-cotizaciones {
-  position: fixed;
-  top: 10px;
-  right: 10px;
-  background-color: #1f1f1f;
-  color: white;
-  padding: 10px 15px;
-  border-radius: 10px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.4);
-  font-size: 13px;
-  z-index: 999;
-  min-width: 180px;
-}
-#cuadro-cotizaciones h4 {
-  margin-top: 0;
-  font-size: 14px;
-  text-align: center;
-  margin-bottom: 8px;
-  color: #7cd1ff;
-}
-#cuadro-cotizaciones table {
-  width: 100%;
-  font-size: 12px;
-}
-#cuadro-cotizaciones td {
-  padding: 2px 5px;
-}
-#cuadro-cotizaciones .nombre {
-  font-weight: bold;
-}
+{% extends "base.html" %}
+{% block title %}Dashboard — Exchange{% endblock %}
+{% block meta_description %}Resumen de tu cartera, saldos y actividad reciente.{% endblock %}
 
+{% block content %}
+<div class="relative">
+  
+  <!-- 🔔 Botón Notificaciones -->
+  <div id="notificaciones-container" class="absolute top-4 right-4">
+    <button onclick="toggleNotificaciones()" class="relative p-2 bg-white border border-gray-200 rounded-full shadow hover:bg-gray-50">
+      🔔
+      <span id="notificaciones-indicador" class="hidden absolute -top-1 -right-1 bg-red-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">0</span>
+    </button>
 
-.notificacion-dropdown {
-    display: none;
-    position: absolute;
-    right: 10px;
-    background: white;
-    color: black;
-    border: 1px solid #ccc;
-    width: 300px;
-    z-index: 1000;
-    max-height: 300px;
-    overflow-y: auto;
-  }
-  .notificacion-dropdown ul {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-  }
-  .notificacion-dropdown li {
-    padding: 10px;
-    border-bottom: 1px solid #eee;
-  }
-  .notificacion-icon {
-    position: relative;
-    cursor: pointer;
-  }
-  .notificacion-badge {
-    position: absolute;
-    top: -5px;
-    right: -5px;
-    background: red;
-    color: white;
-    font-size: 12px;
-    border-radius: 50%;
-    padding: 3px 6px;
-  }
-  </style>
-</head>
-<body>
- <div id="notificaciones-container" style="position: relative;">
-  <button onclick="toggleNotificaciones()" class="campana-btn">
-    🔔
-    <span id="notificaciones-indicador" style="
-      position: absolute;
-      top: 0;
-      left: 0;
-      background: red;
-      color: white;
-      border-radius: 50%;
-      width: 16px;
-      height: 16px;
-      font-size: 12px;
-      text-align: center;
-      line-height: 16px;
-      display: none;
-    ">0</span>
-  </button>
+    <div id="notificaciones-box" class="hidden absolute right-0 mt-2 w-72 bg-white border border-gray-200 rounded-lg shadow-lg max-h-80 overflow-y-auto z-50">
+      <ul id="notificaciones-lista" class="divide-y divide-gray-100"></ul>
+    </div>
+  </div>
 
-  <div id="notificaciones-box" style="display: none;">
-    <ul id="notificaciones-lista"></ul>
+  <!-- 💹 Cuadro de Cotizaciones fijo -->
+  <div id="cuadro-cotizaciones" class="fixed top-4 right-20 bg-gray-900 text-white p-4 rounded-xl shadow-lg text-sm min-w-[180px] z-40">
+    <h4 class="text-center text-cyan-300 font-semibold mb-2">Cotizaciones</h4>
+    <table class="w-full text-xs">
+      <tr>
+        <td class="font-bold">USDT:</td>
+        <td>Compra:</td>
+        <td>${{ cot_usdt.compra }}</td>
+      </tr>
+      <tr>
+        <td></td>
+        <td>Venta:</td>
+        <td>${{ cot_usdt.venta }}</td>
+      </tr>
+      <tr>
+        <td class="font-bold">USD:</td>
+        <td>Compra:</td>
+        <td>${{ cot_usd.compra }}</td>
+      </tr>
+      <tr>
+        <td></td>
+        <td>Venta:</td>
+        <td>${{ cot_usd.venta }}</td>
+      </tr>
+    </table>
+  </div>
+
+  <!-- 👋 Bienvenida -->
+  <h2 class="text-2xl font-semibold mb-6">Bienvenido, {{ request.user.username }}</h2>
+
+  <!-- 📌 Saldos -->
+  <div class="grid gap-4 sm:grid-cols-3 mb-8">
+    <div class="bg-white border border-gray-200 rounded-xl p-5 shadow">
+      <p class="text-sm text-gray-500">Saldo ARS</p>
+      <p class="text-2xl font-bold">${{ request.user.saldo_ars }}</p>
+    </div>
+    <div class="bg-white border border-gray-200 rounded-xl p-5 shadow">
+      <p class="text-sm text-gray-500">Saldo USDT</p>
+      <p class="text-2xl font-bold">{{ request.user.saldo_usdt }}</p>
+    </div>
+    <div class="bg-white border border-gray-200 rounded-xl p-5 shadow">
+      <p class="text-sm text-gray-500">Saldo USD</p>
+      <p class="text-2xl font-bold">{{ request.user.saldo_usd|default:"0.00" }}</p>
+    </div>
+  </div>
+
+  <!-- 🔧 Acciones rápidas -->
+  <div class="bg-white border border-gray-200 rounded-xl p-5 shadow mb-8">
+    <h3 class="text-lg font-semibold mb-4">Acciones rápidas</h3>
+    <div class="flex flex-wrap gap-3 text-sm">
+      <a href="{% url 'operar' %}" class="rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700">🔁 Comprar / Vender</a>
+      <a href="{% url 'agregar_saldo' %}" class="rounded-md bg-green-600 px-4 py-2 text-white hover:bg-green-700">💸 Agregar Saldo</a>
+      <a href="{% url 'solicitar_retiro' %}" class="rounded-md bg-yellow-500 px-4 py-2 text-white hover:bg-yellow-600">💸 Solicitar Retiro</a>
+      <a href="{% url 'exportar_movimientos_usuario' %}" class="rounded-md bg-gray-600 px-4 py-2 text-white hover:bg-gray-700">📥 Exportar movimientos</a>
+      <a href="{% url 'logout' %}" class="rounded-md bg-red-600 px-4 py-2 text-white hover:bg-red-700">🚪 Cerrar sesión</a>
+    </div>
+  </div>
+
+  <!-- 🔔 Notificaciones recientes -->
+  <div class="bg-white border border-gray-200 rounded-xl p-5 shadow mb-8">
+    <h3 class="text-lg font-semibold mb-4">Notificaciones recientes</h3>
+    <ul class="divide-y divide-gray-100 text-sm">
+      {% for n in notificaciones %}
+        <li class="py-2">
+          {{ n.fecha|date:"d/m/Y H:i" }} - {{ n.mensaje }}
+          {% if not n.leida %} <strong class="text-red-600">(nuevo)</strong> {% endif %}
+        </li>
+      {% empty %}
+        <li class="py-4 text-gray-500">No hay notificaciones.</li>
+      {% endfor %}
+    </ul>
+  </div>
+
+  <!-- 📜 Historial de movimientos -->
+  <div>
+    <h3 class="text-lg font-semibold mb-4">Historial de movimientos</h3>
+    <div class="overflow-x-auto">
+      <table class="w-full border-collapse border border-gray-200 text-sm">
+        <thead class="bg-gray-100">
+          <tr>
+            <th class="border border-gray-200 px-3 py-2">Fecha</th>
+            <th class="border border-gray-200 px-3 py-2">Tipo</th>
+            <th class="border border-gray-200 px-3 py-2">Moneda</th>
+            <th class="border border-gray-200 px-3 py-2">Monto</th>
+            <th class="border border-gray-200 px-3 py-2">Saldo antes</th>
+            <th class="border border-gray-200 px-3 py-2">Saldo después</th>
+            <th class="border border-gray-200 px-3 py-2">Descripción</th>
+            <th class="border border-gray-200 px-3 py-2">ID</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in movimientos %}
+            <tr class="hover:bg-gray-50">
+              <td class="border border-gray-200 px-3 py-2">{{ m.fecha }}</td>
+              <td class="border border-gray-200 px-3 py-2">{{ m.get_tipo_display }}</td>
+              <td class="border border-gray-200 px-3 py-2">{{ m.moneda }}</td>
+              <td class="border border-gray-200 px-3 py-2">${{ m.monto }}</td>
+              <td class="border border-gray-200 px-3 py-2">${{ m.saldo_antes }}</td>
+              <td class="border border-gray-200 px-3 py-2">${{ m.saldo_despues }}</td>
+              <td class="border border-gray-200 px-3 py-2">{{ m.descripcion }}</td>
+              <td class="border border-gray-200 px-3 py-2">{{ m.codigo }}</td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="8" class="border border-gray-200 px-3 py-4 text-center text-gray-500">Sin movimientos aún.</td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
 </div>
 
-
-<div id="notificacionDropdown" class="notificacion-dropdown"></div>
-<div id="cuadro-cotizaciones">
-  <h4>Cotizaciones</h4>
-  <table>
-    <tr>
-      <td class="nombre">USDT:</td>
-      <td>Compra:</td>
-      <td>${{ cot_usdt.compra }}</td>
-    </tr>
-    <tr>
-      <td></td>
-      <td>Venta:</td>
-      <td>${{ cot_usdt.venta }}</td>
-    </tr>
-    <tr>
-      <td class="nombre">USD:</td>
-      <td>Compra:</td>
-      <td>${{ cot_usd.compra }}</td>
-    </tr>
-    <tr>
-      <td></td>
-      <td>Venta:</td>
-      <td>${{ cot_usd.venta }}</td>
-    </tr>
-  </table>
-</div>
-  <h2>Bienvenido, {{ request.user.username }}</h2>
-
-  <div class="saldo-box">
-    <h3>📌 Tus saldos:</h3>
-    <p><strong>ARS:</strong> ${{ request.user.saldo_ars }}</p>
-    <p><strong>USDT:</strong> {{ request.user.saldo_usdt }}</p>
-    <p><strong>USD:</strong> {{ request.user.saldo_usd|default:"0.00" }}</p>
-  </div>
- 
-  <div class="notificaciones">
-  <h3>🔔 Notificaciones recientes</h3>
-  <ul>
-    {% for n in notificaciones %}
-      <li>
-        {{ n.fecha|date:"d/m/Y H:i" }} - {{ n.mensaje }}
-        {% if not n.leida %} <strong>(nuevo)</strong> {% endif %}
-      </li>
-    {% empty %}
-      <li>No hay notificaciones.</li>
-    {% endfor %}
-  </ul>
-</div>
-
-
-  <div class="actions">
-    <h3>🔧 Acciones rápidas:</h3>
-    <a href="{% url 'operar' %}">🔁 Comprar / Vender</a>
-    <a href="{% url 'agregar_saldo' %}">💸 Agregar Saldo</a>
-    <a href="{% url 'solicitar_retiro' %}">💸 Solicitar Retiro</a>
-    <a href="{% url 'exportar_movimientos_usuario' %}" class="btn">📥 Exportar mis movimientos (CSV)</a>
-
-    
-    
-   
-    
-    <a href="{% url 'logout' %}">🚪 Cerrar sesión</a>
-  </div>
-
-
-<h3>Historial de movimientos</h3>
-<table>
-  <tr>
-    <th>Fecha</th>
-    <th>Tipo</th>
-    <th>Moneda</th>
-    <th>Monto</th>
-    <th>Saldo antes</th>
-    <th>Saldo Despues</th>
-    <th>Descripción</th>
-    <th>ID</th>
-  </tr>
-  {% for m in movimientos %}
-    <tr>
-      <td>{{ m.fecha }}</td>
-      <td>{{ m.get_tipo_display }}</td>
-      <td>{{ m.moneda }}</td>
-      <td>${{ m.monto }}</td>
-      <td>${{ m.saldo_antes }}</td>
-      <td>${{ m.saldo_despues }}</td>
-      <td>{{ m.descripcion }}</td>
-      <td>{{ m.codigo }}</td>
-    </tr>
-  {% empty %}
-    <tr><td colspan="5">Sin movimientos aún.</td></tr>
-  {% endfor %}
-</table>
-
-
-</body>
-
+<!-- 📜 Scripts para notificaciones -->
 <script>
 function toggleNotificaciones() {
   const box = document.getElementById('notificaciones-box');
-  box.style.display = box.style.display === 'none' ? 'block' : 'none';
+  box.classList.toggle('hidden');
 
-  if (box.style.display === 'block') {
+  if (!box.classList.contains('hidden')) {
     fetch('/notificaciones/ajax/')
       .then(response => response.json())
       .then(data => {
@@ -230,17 +145,16 @@ function toggleNotificaciones() {
 
         data.notificaciones.forEach(n => {
           const li = document.createElement('li');
+          li.className = 'py-2 px-3 hover:bg-gray-50';
           li.textContent = `${n.fecha}: ${n.mensaje}`;
           lista.appendChild(li);
         });
 
-        // Ocultamos indicador al abrir notificaciones
         document.getElementById('notificaciones-indicador').style.display = 'none';
       });
   }
 }
 
-// Consulta cuántas no leídas hay
 function verificarNotificaciones() {
   fetch('/notificaciones/contar/')
     .then(response => response.json())
@@ -248,16 +162,13 @@ function verificarNotificaciones() {
       const indicador = document.getElementById('notificaciones-indicador');
       if (data.no_leidas > 0) {
         indicador.textContent = data.no_leidas > 9 ? '9+' : data.no_leidas;
-        indicador.style.display = 'block';
+        indicador.style.display = 'flex';
       } else {
         indicador.style.display = 'none';
       }
     });
 }
 
-// Ejecutar al cargar la página
 document.addEventListener('DOMContentLoaded', verificarNotificaciones);
 </script>
-
-
-</html>
+{% endblock %}
