@@ -1,11 +1,11 @@
 from django.shortcuts import render, redirect, get_object_or_404, HttpResponse
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.http import HttpResponseRedirect
-from .forms import RegistroUsuarioForm, DepositoARSForm
+from .forms import RegistroUsuarioForm, DepositoARSForm, DepositoUSDTForm
 from django.contrib import messages
 from django.urls import reverse
-from .models import Usuario, DepositoARS, Movimiento, Cotizacion, RetiroARS, Notificacion, RetiroCrypto
-from decimal import Decimal
+from .models import Usuario, DepositoARS, Movimiento, Cotizacion, RetiroARS, Notificacion, RetiroCrypto, DepositoUSDT
+from decimal import Decimal, ROUND_DOWN
 from django.views.decorators.http import require_GET
 from django.http import JsonResponse
 import logging
@@ -15,6 +15,8 @@ from django.db.models import Q
 from datetime import datetime
 from django.utils.timezone import localtime
 from .utils import registrar_movimiento, crear_notificacion
+from django.db import transaction
+from django.conf import settings
 
 
 logger = logging.getLogger(__name__)
@@ -128,6 +130,47 @@ def agregar_saldo(request):
         'datos_bancarios' : datos_bancarios
     })
 
+
+@login_required
+def depositar_usdt(request):
+    if request.user.estado_verificacion != 'aprobado':
+        return render(request, 'usuarios/no_verificado.html')
+
+    if request.method == 'POST':
+        form = DepositoUSDTForm(request.POST, request.FILES)
+        if form.is_valid():
+            dep = form.save(commit=False)
+            dep.usuario = request.user
+            dep.estado = 'pendiente'
+            dep.save()
+
+            # Movimiento informativo (no cambia saldos)
+            registrar_movimiento(
+                usuario=request.user,
+                tipo='deposito',
+                moneda='USDT',
+                monto=0,
+                descripcion=f"Solicitud de depósito USDT enviada (monto: {dep.monto}, red: {dep.red}, txid: {dep.txid}). En revisión.",
+                saldo_antes=request.user.saldo_usdt,
+                saldo_despues=request.user.saldo_usdt
+            )
+            messages.success(request, 'Solicitud enviada. En breve será verificada.')
+            return redirect('dashboard')
+    else:
+        form = DepositoUSDTForm()
+
+    # opcional: mostrar tu wallet, red recomendada, etc.
+    datos_wallet = {
+        'wallet_trc20': 'TU_WALLET_TRC20',
+        'wallet_erc20': 'TU_WALLET_ERC20',
+    }
+
+    return render(request, 'usuarios/depositar_usdt.html', {
+        'form': form,
+        'datos_wallet': datos_wallet
+    })
+
+
 @login_required
 @user_passes_test(es_admin)
 def panel_depositos(request):
@@ -193,81 +236,41 @@ def rechazar_deposito(request, deposito_id):
 
 
 
+
+
 # @login_required
 # def operar(request):
+#     # Obtener última cotización ya con comisión aplicada
 #     cot_usdt = Cotizacion.objects.filter(moneda='USDT').order_by('-fecha').first()
 #     cot_usd = Cotizacion.objects.filter(moneda='USD').order_by('-fecha').first()
 
+#     if not cot_usdt or not cot_usd:
+#         return HttpResponse("No hay cotización disponible. Intentá más tarde.", status=503)
+
+#     # Usar directamente los valores de la BD (ya tienen comisión aplicada)
+#     cot_usdt_compra = cot_usdt.compra
+#     cot_usdt_venta = cot_usdt.venta
+#     cot_usd_compra = cot_usd.compra
+#     cot_usd_venta = cot_usd.venta
+
 #     if request.method == 'POST':
-#         operacion = request.POST.get('operacion')  # 'compra' o 'venta'
-#         moneda = request.POST.get('moneda')        # 'USDT' o 'USD'
+#         operacion = request.POST.get('operacion')
+#         moneda = request.POST.get('moneda')
 
 #         try:
+#             monto = Decimal(request.POST.get('monto'))
+
 #             if operacion == 'compra':
-#                 monto_ars = Decimal(request.POST.get('monto'))
-#                 cot = cot_usdt if moneda == 'USDT' else cot_usd
-#                 monto_moneda = monto_ars / cot.venta
-
-#                 if request.user.saldo_ars < monto_ars:
-#                     return HttpResponse("Saldo ARS insuficiente", status=400)
-
-#                 # Descontar saldo ARS y acreditar moneda
-#                 request.user.saldo_ars -= monto_ars
-#                 if moneda == 'USDT':
-#                     request.user.saldo_usdt += monto_moneda
-#                 else:
-#                     request.user.saldo_usd += monto_moneda
-#                 request.user.save()
-
-#                 # Movimientos 
-#                 Movimiento.objects.create(
-#                     usuario=request.user,
-#                     tipo='compra',
-#                     moneda='ARS',
-#                     monto=-monto_ars,
-#                     descripcion=f'Compra de {moneda} a ${cot.venta}'
-#                 )
-#                 Movimiento.objects.create(
-#                     usuario=request.user,
-#                     tipo='compra',
-#                     moneda=moneda,
-#                     monto=monto_moneda,
-#                     descripcion=f'Compra de {moneda} con ${monto_ars} ARS'
-#                 )
-
+#                 cot = cot_usdt_venta if moneda == 'USDT' else cot_usd_venta
+#                 exito, error = procesar_compra(request.user, moneda, monto, cot)
 #             elif operacion == 'venta':
-#                 monto_moneda = Decimal(request.POST.get('monto'))
-#                 cot = cot_usdt if moneda == 'USDT' else cot_usd
-#                 monto_ars = monto_moneda * cot.compra
+#                 cot = cot_usdt_compra if moneda == 'USDT' else cot_usd_compra
+#                 exito, error = procesar_venta(request.user, moneda, monto, cot)
+#             else:
+#                 return HttpResponse("Operación no válida", status=400)
 
-#                 if moneda == 'USDT' and request.user.saldo_usdt < monto_moneda:
-#                     return HttpResponse("Saldo USDT insuficiente", status=400)
-#                 elif moneda == 'USD' and request.user.saldo_usd < monto_moneda:
-#                     return HttpResponse("Saldo USD insuficiente", status=400)
-
-#                 # Descontar moneda y acreditar ARS
-#                 if moneda == 'USDT':
-#                     request.user.saldo_usdt -= monto_moneda
-#                 else:
-#                     request.user.saldo_usd -= monto_moneda
-#                 request.user.saldo_ars += monto_ars
-#                 request.user.save()
-
-#                 # Movimientos 
-#                 Movimiento.objects.create(
-#                     usuario=request.user,
-#                     tipo='venta',
-#                     moneda=moneda,
-#                     monto=-monto_moneda,
-#                     descripcion=f'Venta de {moneda} a ${cot.compra}'
-#                 )
-#                 Movimiento.objects.create(
-#                     usuario=request.user,
-#                     tipo='venta',
-#                     moneda='ARS',
-#                     monto=monto_ars,
-#                     descripcion=f'Venta de {moneda}. ARS acreditado.'
-#                 )
+#             if not exito:
+#                 return HttpResponse(error, status=400)
 
 #             return redirect('dashboard')
 
@@ -275,146 +278,276 @@ def rechazar_deposito(request, deposito_id):
 #             logger.error(f"[OPERAR ERROR] Usuario: {request.user.username} - Error: {str(e)}")
 #             return HttpResponse("Ocurrió un error al procesar la operación.", status=400)
 
-
 #     return render(request, 'usuarios/operar.html', {
-#         'cot_usdt': cot_usdt,
-#         'cot_usd': cot_usd,
+#         'cot_usdt': {'compra': cot_usdt_compra, 'venta': cot_usdt_venta},
+#         'cot_usd': {'compra': cot_usd_compra, 'venta': cot_usd_venta},
 #     })
+
+
+
+
 
 @login_required
 def operar(request):
-    # Obtener última cotización ya con comisión aplicada
-    cot_usdt = Cotizacion.objects.filter(moneda='USDT').order_by('-fecha').first()
-    cot_usd = Cotizacion.objects.filter(moneda='USD').order_by('-fecha').first()
+    if request.user.estado_verificacion != 'aprobado':
+        return render(request, 'usuarios/no_verificado.html')
 
+    # Últimas cotizaciones (las usás para compra/venta con ARS)
+    cot_usdt = Cotizacion.objects.filter(moneda='USDT').order_by('-fecha').first()
+    cot_usd  = Cotizacion.objects.filter(moneda='USD').order_by('-fecha').first()
     if not cot_usdt or not cot_usd:
         return HttpResponse("No hay cotización disponible. Intentá más tarde.", status=503)
 
-    # Usar directamente los valores de la BD (ya tienen comisión aplicada)
     cot_usdt_compra = cot_usdt.compra
-    cot_usdt_venta = cot_usdt.venta
-    cot_usd_compra = cot_usd.compra
-    cot_usd_venta = cot_usd.venta
+    cot_usdt_venta  = cot_usdt.venta
+    cot_usd_compra  = cot_usd.compra
+    cot_usd_venta   = cot_usd.venta
 
     if request.method == 'POST':
         operacion = request.POST.get('operacion')
-        moneda = request.POST.get('moneda')
 
-        try:
-            monto = Decimal(request.POST.get('monto'))
+        # -------------------------
+        # 1) COMPRA / VENTA (tu lógica actual con ARS)
+        # -------------------------
+        if operacion in ('compra', 'venta'):
+            moneda = request.POST.get('moneda')
+            try:
+                monto = Decimal(request.POST.get('monto'))
+            except Exception:
+                logger.error(f"[OPERAR ERROR] Usuario: {request.user.username} - Monto inválido")
+                return HttpResponse("Monto inválido.", status=400)
 
-            if operacion == 'compra':
-                cot = cot_usdt_venta if moneda == 'USDT' else cot_usd_venta
-                exito, error = procesar_compra(request.user, moneda, monto, cot)
-            elif operacion == 'venta':
-                cot = cot_usdt_compra if moneda == 'USDT' else cot_usd_compra
-                exito, error = procesar_venta(request.user, moneda, monto, cot)
-            else:
-                return HttpResponse("Operación no válida", status=400)
+            try:
+                if operacion == 'compra':
+                    # para compra usás precio de VENTA de la casa (el más caro)
+                    cot = cot_usdt_venta if moneda == 'USDT' else cot_usd_venta
+                    exito, error = procesar_compra(request.user, moneda, monto, cot)
+                else:
+                    # para venta usás precio de COMPRA de la casa (el más barato)
+                    cot = cot_usdt_compra if moneda == 'USDT' else cot_usd_compra
+                    exito, error = procesar_venta(request.user, moneda, monto, cot)
 
-            if not exito:
-                return HttpResponse(error, status=400)
+                if not exito:
+                    return HttpResponse(error, status=400)
 
-            return redirect('dashboard')
+                messages.success(request, "Operación realizada con éxito.")
+                return redirect('dashboard')
 
-        except Exception as e:
-            logger.error(f"[OPERAR ERROR] Usuario: {request.user.username} - Error: {str(e)}")
-            return HttpResponse("Ocurrió un error al procesar la operación.", status=400)
+            except Exception as e:
+                logger.error(f"[OPERAR ERROR] Usuario: {request.user.username} - Error: {str(e)}")
+                return HttpResponse("Ocurrió un error al procesar la operación.", status=400)
 
+        # -------------------------
+        # 2) SWAP USD ⇄ USDT (nuevo)
+        # -------------------------
+        elif operacion == 'swap':
+            direction = request.POST.get('swap_direccion')  # 'USD_to_USDT' o 'USDT_to_USD'
+            try:
+                amount = Decimal(request.POST.get('monto'))
+            except Exception:
+                messages.error(request, "Monto inválido.")
+                return redirect('dashboard')
+
+            if amount <= 0:
+                messages.error(request, "El monto debe ser mayor a 0.")
+                return redirect('dashboard')
+
+            # Paridad base 1:1 (si querés otra lógica, cambiá acá)
+            rate = Decimal('1.00')
+            fee_bps = getattr(settings, 'SWAP_FEE_BPS', 100)  # 100 bps = 1%
+            fee_factor = (Decimal('1') - (Decimal(fee_bps) / Decimal('10000')))
+
+            def q2(x):  # redondeo conservador a 2 decimales
+                return Decimal(x).quantize(Decimal('0.01'), rounding=ROUND_DOWN)
+
+            try:
+                with transaction.atomic():
+                    u = Usuario.objects.select_for_update().get(pk=request.user.pk)
+
+                    if direction == 'USD_to_USDT':
+                        if u.saldo_usd < amount:
+                            messages.error(request, "Saldo USD insuficiente.")
+                            return redirect('dashboard')
+
+                        # Debito USD
+                        usd_antes = u.saldo_usd
+                        u.saldo_usd = q2(u.saldo_usd - amount)
+                        usd_despues = u.saldo_usd
+
+                        # Crédito USDT (neto de fee)
+                        usdt_bruto = amount * rate
+                        usdt_neto = q2(usdt_bruto * fee_factor)
+
+                        usdt_antes = u.saldo_usdt
+                        u.saldo_usdt = q2(u.saldo_usdt + usdt_neto)
+                        usdt_despues = u.saldo_usdt
+                        u.save()
+
+                        registrar_movimiento(
+                            usuario=u,
+                            tipo='venta',   # vendiste USD
+                            moneda='USD',
+                            monto=amount,
+                            descripcion=f'Swap USD→USDT al rate {rate}, fee {fee_bps} bps',
+                            saldo_antes=usd_antes,
+                            saldo_despues=usd_despues
+                        )
+                        registrar_movimiento(
+                            usuario=u,
+                            tipo='compra',  # compraste USDT
+                            moneda='USDT',
+                            monto=usdt_neto,
+                            descripcion=f'Swap USD→USDT al rate {rate}, fee {fee_bps} bps',
+                            saldo_antes=usdt_antes,
+                            saldo_despues=usdt_despues
+                        )
+                        crear_notificacion(u, f"Swap USD→USDT: {amount} USD → {usdt_neto} USDT.")
+
+                        messages.success(request, f"Swap USD→USDT realizado. Acreditado: {usdt_neto} USDT.")
+                        return redirect('dashboard')
+
+                    elif direction == 'USDT_to_USD':
+                        if u.saldo_usdt < amount:
+                            messages.error(request, "Saldo USDT insuficiente.")
+                            return redirect('dashboard')
+
+                        # Debito USDT
+                        usdt_antes = u.saldo_usdt
+                        u.saldo_usdt = q2(u.saldo_usdt - amount)
+                        usdt_despues = u.saldo_usdt
+
+                        # Crédito USD (neto de fee)
+                        usd_bruto = amount / rate
+                        usd_neto = q2(usd_bruto * fee_factor)
+
+                        usd_antes = u.saldo_usd
+                        u.saldo_usd = q2(u.saldo_usd + usd_neto)
+                        usd_despues = u.saldo_usd
+                        u.save()
+
+                        registrar_movimiento(
+                            usuario=u,
+                            tipo='venta',   # vendiste USDT
+                            moneda='USDT',
+                            monto=amount,
+                            descripcion=f'Swap USDT→USD al rate {rate}, fee {fee_bps} bps',
+                            saldo_antes=usdt_antes,
+                            saldo_despues=usdt_despues
+                        )
+                        registrar_movimiento(
+                            usuario=u,
+                            tipo='compra',  # compraste USD
+                            moneda='USD',
+                            monto=usd_neto,
+                            descripcion=f'Swap USDT→USD al rate {rate}, fee {fee_bps} bps',
+                            saldo_antes=usd_antes,
+                            saldo_despues=usd_despues
+                        )
+                        crear_notificacion(u, f"Swap USDT→USD: {amount} USDT → {usd_neto} USD.")
+
+                        messages.success(request, f"Swap USDT→USD realizado. Acreditado: {usd_neto} USD.")
+                        return redirect('dashboard')
+
+                    else:
+                        messages.error(request, "Dirección de swap inválida.")
+                        return redirect('dashboard')
+
+            except Exception as e:
+                logger.error(f"[SWAP ERROR] Usuario: {request.user.username} - {e}")
+                messages.error(request, "No se pudo completar el swap.")
+                return redirect('dashboard')
+
+        else:
+            return HttpResponse("Operación no válida", status=400)
+
+    # GET
     return render(request, 'usuarios/operar.html', {
         'cot_usdt': {'compra': cot_usdt_compra, 'venta': cot_usdt_venta},
-        'cot_usd': {'compra': cot_usd_compra, 'venta': cot_usd_venta},
+        'cot_usd':  {'compra': cot_usd_compra,  'venta': cot_usd_venta},
+        'swap_fee_bps': getattr(settings, 'SWAP_FEE_BPS', 100),
+        'swap_rate': Decimal('1.00'),
     })
 
 
+def q2(x):  # alinear con Decimal(20,2)
+    return Decimal(x).quantize(Decimal('0.01'), rounding=ROUND_DOWN)
 
 def procesar_compra(usuario, moneda, monto_ars, cotizacion_venta):
-    if usuario.saldo_ars < monto_ars:
-        return False, "Saldo ARS insuficiente"
+    with transaction.atomic():
+        u = Usuario.objects.select_for_update().get(pk=usuario.pk)
 
-    monto_moneda = monto_ars / cotizacion_venta
-    # Guardamos saldo actual (en ARS) antes de descontar
-    saldo_antes_ars = usuario.saldo_ars
-    usuario.saldo_ars -= monto_ars
-    if moneda == 'USDT':
-        # Para la moneda, capturamos saldo antes (asumiendo que el registro de USDT se hace)
-        saldo_antes_moneda = usuario.saldo_usdt
-        usuario.saldo_usdt += monto_moneda
-        saldo_despues_moneda = usuario.saldo_usdt
-    else:
-        saldo_antes_moneda = usuario.saldo_usd
-        usuario.saldo_usd += monto_moneda
-        saldo_despues_moneda = usuario.saldo_usd
-    usuario.save()
-    saldo_despues_ars = usuario.saldo_ars
+        if u.saldo_ars < monto_ars or monto_ars <= 0:
+            return False, "Saldo ARS insuficiente o monto inválido"
 
-    # Registrar movimiento de ARS (descuento)
-    registrar_movimiento(
-        usuario=usuario,
-        tipo='compra',
-        moneda='ARS',
-        monto=-monto_ars,
-        descripcion=f'Compra de {moneda} a ${cotizacion_venta}',
-        saldo_antes=saldo_antes_ars,
-        saldo_despues=saldo_despues_ars
-    )
-    # Registrar movimiento de la moneda adquirida (crédito)
-    registrar_movimiento(
-        usuario=usuario,
-        tipo='compra',
-        moneda=moneda,
-        monto=monto_moneda,
-        descripcion=f'Compra de {moneda} con ${monto_ars} ARS',
-        saldo_antes=saldo_antes_moneda,
-        saldo_despues=saldo_despues_moneda
-    )
+        # ARS -> (USDT o USD)
+        recibido = q2(Decimal(monto_ars) / Decimal(cotizacion_venta))
 
-    return True, None
+        ars_antes = u.saldo_ars
+        u.saldo_ars = q2(u.saldo_ars - monto_ars)
+        ars_despues = u.saldo_ars
+
+        if moneda == 'USDT':
+            mon_antes = u.saldo_usdt
+            u.saldo_usdt = q2(u.saldo_usdt + recibido)
+            mon_despues = u.saldo_usdt
+        else:
+            mon_antes = u.saldo_usd
+            u.saldo_usd = q2(u.saldo_usd + recibido)
+            mon_despues = u.saldo_usd
+
+        u.save()
+
+        registrar_movimiento(
+            usuario=u, tipo='compra', moneda='ARS', monto=-monto_ars,
+            descripcion=f'Compra de {moneda} a ${cotizacion_venta}',
+            saldo_antes=ars_antes, saldo_despues=ars_despues
+        )
+        registrar_movimiento(
+            usuario=u, tipo='compra', moneda=moneda, monto=recibido,
+            descripcion=f'Compra de {moneda} con ${monto_ars} ARS',
+            saldo_antes=mon_antes, saldo_despues=mon_despues
+        )
+
+        return True, None
 
 def procesar_venta(usuario, moneda, monto_moneda, cotizacion_compra):
-    if moneda == 'USDT' and usuario.saldo_usdt < monto_moneda:
-        return False, "Saldo USDT insuficiente"
-    elif moneda == 'USD' and usuario.saldo_usd < monto_moneda:
-        return False, "Saldo USD insuficiente"
+    with transaction.atomic():
+        u = Usuario.objects.select_for_update().get(pk=usuario.pk)
 
-    # Determinar saldo y actualizar la moneda
-    if moneda == 'USDT':
-        saldo_antes_moneda = usuario.saldo_usdt
-        usuario.saldo_usdt -= monto_moneda
-        saldo_despues_moneda = usuario.saldo_usdt
-    else:
-        saldo_antes_moneda = usuario.saldo_usd
-        usuario.saldo_usd -= monto_moneda
-        saldo_despues_moneda = usuario.saldo_usd
+        if monto_moneda <= 0:
+            return False, "Monto inválido"
 
-    monto_ars = monto_moneda * cotizacion_compra
-    saldo_antes_ars = usuario.saldo_ars
-    usuario.saldo_ars += monto_ars
-    usuario.save()
-    saldo_despues_ars = usuario.saldo_ars
+        if moneda == 'USDT':
+            if u.saldo_usdt < monto_moneda:
+                return False, "Saldo USDT insuficiente"
+            mon_antes = u.saldo_usdt
+            u.saldo_usdt = q2(u.saldo_usdt - monto_moneda)
+            mon_despues = u.saldo_usdt
+        else:  # USD
+            if u.saldo_usd < monto_moneda:
+                return False, "Saldo USD insuficiente"
+            mon_antes = u.saldo_usd
+            u.saldo_usd = q2(u.saldo_usd - monto_moneda)
+            mon_despues = u.saldo_usd
 
-    # Registrar movimiento de la moneda (descuento)
-    registrar_movimiento(
-        usuario=usuario,
-        tipo='venta',
-        moneda=moneda,
-        monto=-monto_moneda,
-        descripcion=f'Venta de {moneda} a ${cotizacion_compra}',
-        saldo_antes=saldo_antes_moneda,
-        saldo_despues=saldo_despues_moneda
-    )
-    # Registrar movimiento en ARS (acreditación)
-    registrar_movimiento(
-        usuario=usuario,
-        tipo='venta',
-        moneda='ARS',
-        monto=monto_ars,
-        descripcion=f'Venta de {moneda}. ARS acreditado.',
-        saldo_antes=saldo_antes_ars,
-        saldo_despues=saldo_despues_ars
-    )
+        ars_recibe = q2(Decimal(monto_moneda) * Decimal(cotizacion_compra))
+        ars_antes = u.saldo_ars
+        u.saldo_ars = q2(u.saldo_ars + ars_recibe)
+        ars_despues = u.saldo_ars
+        u.save()
 
-    return True, None
+        registrar_movimiento(
+            usuario=u, tipo='venta', moneda=moneda, monto=-monto_moneda,
+            descripcion=f'Venta de {moneda} a ${cotizacion_compra}',
+            saldo_antes=mon_antes, saldo_despues=mon_despues
+        )
+        registrar_movimiento(
+            usuario=u, tipo='venta', moneda='ARS', monto=ars_recibe,
+            descripcion=f'Venta de {moneda}. ARS acreditado.',
+            saldo_antes=ars_antes, saldo_despues=ars_despues
+        )
+
+        return True, None
 
 
 @login_required
@@ -684,3 +817,221 @@ def panel_retiros(request):
         'retiros_crypto': retiros_crypto,
     })
 
+@login_required
+@user_passes_test(es_admin)
+def panel_depositos_usdt(request):
+    depositos = DepositoUSDT.objects.all().order_by('-fecha')
+    return render(request, 'usuarios/panel_depositos_usdt.html', {'depositos': depositos})
+
+@login_required
+@user_passes_test(es_admin)
+def aprobar_deposito_usdt(request, deposito_id):
+    dep = get_object_or_404(DepositoUSDT, id=deposito_id)
+    if request.method == 'POST' and dep.estado == 'pendiente':
+        with transaction.atomic():
+            # lock del usuario para evitar condiciones de carrera
+            usuario = Usuario.objects.select_for_update().get(pk=dep.usuario_id)
+
+            saldo_antes = usuario.saldo_usdt
+            usuario.saldo_usdt = (usuario.saldo_usdt + dep.monto)
+            usuario.save()
+            saldo_despues = usuario.saldo_usdt
+
+            dep.estado = 'aprobado'
+            dep.save()
+
+            registrar_movimiento(
+                usuario=usuario,
+                tipo='deposito',
+                moneda='USDT',
+                monto=dep.monto,
+                descripcion=f'Depósito USDT aprobado por admin (red: {dep.red}, txid: {dep.txid})',
+                admin=request.user,
+                saldo_antes=saldo_antes,
+                saldo_despues=saldo_despues
+            )
+            crear_notificacion(usuario, f"Tu depósito de {dep.monto} USDT fue aprobado.")
+    return redirect('panel_depositos_usdt')
+
+@login_required
+@user_passes_test(es_admin)
+def rechazar_deposito_usdt(request, deposito_id):
+    dep = get_object_or_404(DepositoUSDT, id=deposito_id)
+    if dep.estado == 'pendiente':
+        dep.estado = 'rechazado'
+        dep.save()
+
+        registrar_movimiento(
+            usuario=dep.usuario,
+            tipo='ajuste',
+            moneda='USDT',
+            monto=0,
+            descripcion=f'Depósito USDT rechazado por admin. Monto solicitado: {dep.monto} USDT (txid: {dep.txid})'
+        )
+        crear_notificacion(dep.usuario, f"Tu depósito de {dep.monto} USDT fue rechazado.")
+    return redirect('panel_depositos_usdt')
+
+from decimal import Decimal
+
+@login_required
+def swap_usd_usdt(request):
+    if request.user.estado_verificacion != 'aprobado':
+        return render(request, 'usuarios/no_verificado.html')
+
+    if request.method == 'POST':
+        # direction: 'USD_to_USDT' o 'USDT_to_USD'
+        direction = request.POST.get('direction')
+        try:
+            amount = Decimal(request.POST.get('amount', '0'))
+        except:
+            messages.error(request, "Monto inválido.")
+            return redirect('dashboard')
+
+        if amount <= 0:
+            messages.error(request, "El monto debe ser mayor a 0.")
+            return redirect('dashboard')
+
+        fee_bps = getattr(settings, 'SWAP_FEE_BPS', 100)  # 1%
+        fee_factor = Decimal('1') - (Decimal(str(fee_bps)) / Decimal('10000'))
+
+        # Tasa base (paridad). Si luego querés, traé esto de tu tabla Cotizacion (USDT/USD).
+        rate = Decimal('1.00')
+
+        with transaction.atomic():
+            usuario = Usuario.objects.select_for_update().get(pk=request.user.pk)
+
+            if direction == 'USD_to_USDT':
+                if usuario.saldo_usd < amount:
+                    messages.error(request, "Saldo USD insuficiente.")
+                    return redirect('dashboard')
+
+                # venta de USD, compra de USDT (neto con fee)
+                usd_antes = usuario.saldo_usd
+                usuario.saldo_usd = (usuario.saldo_usd - amount)
+                usd_despues = usuario.saldo_usd
+
+                usdt_bruto = amount * rate  # ~ igual
+                usdt_neto = (usdt_bruto * fee_factor)  # fee aplicado
+
+                usdt_antes = usuario.saldo_usdt
+                usuario.saldo_usdt = (usuario.saldo_usdt + usdt_neto)
+                usdt_despues = usuario.saldo_usdt
+
+                usuario.save()
+
+                # movimientos: venta USD, compra USDT
+                registrar_movimiento(
+                    usuario=usuario,
+                    tipo='venta',
+                    moneda='USD',
+                    monto=amount,  # vendiste X USD
+                    descripcion=f'Swap USD→USDT al rate {rate}, fee {fee_bps} bps',
+                    saldo_antes=usd_antes,
+                    saldo_despues=usd_despues
+                )
+                registrar_movimiento(
+                    usuario=usuario,
+                    tipo='compra',
+                    moneda='USDT',
+                    monto=usdt_neto,  # acreditado neto
+                    descripcion=f'Swap USD→USDT al rate {rate}, fee {fee_bps} bps',
+                    saldo_antes=usdt_antes,
+                    saldo_despues=usdt_despues
+                )
+
+                crear_notificacion(usuario, f"Swap USD→USDT exitoso: {amount} USD → {usdt_neto} USDT (fee {fee_bps} bps).")
+                messages.success(request, f"Swap USD→USDT realizado. Acreditado: {usdt_neto} USDT.")
+
+            elif direction == 'USDT_to_USD':
+                if usuario.saldo_usdt < amount:
+                    messages.error(request, "Saldo USDT insuficiente.")
+                    return redirect('dashboard')
+
+                # venta de USDT, compra de USD (neto con fee)
+                usdt_antes = usuario.saldo_usdt
+                usuario.saldo_usdt = (usuario.saldo_usdt - amount)
+                usdt_despues = usuario.saldo_usdt
+
+                usd_bruto = amount / rate  # ~ igual
+                usd_neto = (usd_bruto * fee_factor)
+
+                usd_antes = usuario.saldo_usd
+                usuario.saldo_usd = (usuario.saldo_usd + usd_neto)
+                usd_despues = usuario.saldo_usd
+
+                usuario.save()
+
+                registrar_movimiento(
+                    usuario=usuario,
+                    tipo='venta',
+                    moneda='USDT',
+                    monto=amount,
+                    descripcion=f'Swap USDT→USD al rate {rate}, fee {fee_bps} bps',
+                    saldo_antes=usdt_antes,
+                    saldo_despues=usdt_despues
+                )
+                registrar_movimiento(
+                    usuario=usuario,
+                    tipo='compra',
+                    moneda='USD',
+                    monto=usd_neto,
+                    descripcion=f'Swap USDT→USD al rate {rate}, fee {fee_bps} bps',
+                    saldo_antes=usd_antes,
+                    saldo_despues=usd_despues
+                )
+
+                crear_notificacion(usuario, f"Swap USDT→USD exitoso: {amount} USDT → {usd_neto} USD (fee {fee_bps} bps).")
+                messages.success(request, f"Swap USDT→USD realizado. Acreditado: {usd_neto} USD.")
+            else:
+                messages.error(request, "Dirección de swap inválida.")
+                return redirect('dashboard')
+
+        return redirect('dashboard')
+
+    # GET: simple form
+    return render(request, 'usuarios/swap.html', {
+        'fee_bps': getattr(settings, 'SWAP_FEE_BPS', 100),
+        'rate': Decimal('1.00'),
+    })
+
+
+@login_required
+@user_passes_test(es_admin)
+def rechazar_retiro_ars(request, id):
+    retiro = get_object_or_404(RetiroARS, id=id)
+    if request.method == 'POST' and retiro.estado in ('pendiente', 'aprobado'):
+        with transaction.atomic():
+            u = Usuario.objects.select_for_update().get(pk=retiro.usuario_id)
+            saldo_antes = u.saldo_ars
+            u.saldo_ars = q2(u.saldo_ars + retiro.monto)
+            u.save()
+            retiro.estado = 'rechazado'
+            retiro.save()
+            registrar_movimiento(
+                usuario=u, tipo='ajuste', moneda='ARS', monto=retiro.monto,
+                descripcion=f'Retiro ARS rechazado. Se recredita ${retiro.monto}.',
+                saldo_antes=saldo_antes, saldo_despues=u.saldo_ars
+            )
+            crear_notificacion(u, f"Tu retiro de ${retiro.monto} ARS fue rechazado. Se recreditó el saldo.")
+    return redirect('panel_retiros')
+
+@login_required
+@user_passes_test(es_admin)
+def rechazar_retiro_cripto(request, id):
+    retiro = get_object_or_404(RetiroCrypto, id=id)
+    if request.method == 'POST' and retiro.estado == 'pendiente':
+        with transaction.atomic():
+            u = Usuario.objects.select_for_update().get(pk=retiro.usuario_id)
+            campo = 'saldo_usdt' if retiro.moneda == 'USDT' else 'saldo_usd'
+            antes = getattr(u, campo)
+            setattr(u, campo, q2(antes + retiro.monto))
+            u.save()
+            retiro.estado = 'rechazado'
+            retiro.save()
+            registrar_movimiento(
+                usuario=u, tipo='ajuste', moneda=retiro.moneda, monto=retiro.monto,
+                descripcion=f'Retiro {retiro.moneda} rechazado. Se recredita {retiro.monto}.',
+                saldo_antes=antes, saldo_despues=getattr(u, campo)
+            )
+            crear_notificacion(u, f"Tu retiro de {retiro.monto} {retiro.moneda} fue rechazado y se recreditó.")
+    return redirect('panel_retiros')

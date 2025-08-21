@@ -25,43 +25,80 @@
       <div class="grid gap-4 sm:grid-cols-2">
         <article class="rounded-lg border border-ink-200 p-4">
           <h2 class="mb-2 text-lg font-semibold">Comprar</h2>
-          <form method="POST" class="space-y-3" onsubmit="this.querySelector('[name=operacion]').value='compra'">
+          <form method="POST" class="space-y-3 op-confirm"
+            onsubmit="this.querySelector('[name=operacion]').value='compra'">
             {% csrf_token %}
             <input type="hidden" name="operacion" value="compra" />
             <div>
               <label class="mb-1 block text-sm text-ink-600">Moneda</label>
-              <select name="moneda" class="w-full rounded-md border border-ink-200 px-3 py-2 focus:ring-2 focus:ring-brand-500">
-                <option value="USDT">USDT — Venta: ${{ cot_usdt.venta }}</option>
-                <option value="USD">USD — Venta: ${{ cot_usd.venta }}</option>
-              </select>
+              <select name="moneda"
+                class="w-full rounded-md border border-ink-200 px-3 py-2 focus:ring-2 focus:ring-brand-500">
+                <option value="USDT" data-venta="{{ cot_usdt.venta }}">USDT — Venta: ${{ cot_usdt.venta }}</option>
+                <option value="USD" data-venta="{{ cot_usd.venta }}">USD — Venta: ${{ cot_usd.venta }}</option>
             </div>
             <div>
               <label class="mb-1 block text-sm text-ink-600">Monto en ARS</label>
-              <input name="monto" step="0.01" type="number" required class="w-full rounded-md border border-ink-200 px-3 py-2 focus:ring-2 focus:ring-brand-500" />
+              <input name="monto" step="0.01" type="number" required
+                class="w-full rounded-md border border-ink-200 px-3 py-2 focus:ring-2 focus:ring-brand-500" />
             </div>
-            <button class="w-full rounded-md bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-700">Comprar</button>
+            <button
+              class="w-full rounded-md bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-700">Comprar</button>
           </form>
         </article>
 
         <article class="rounded-lg border border-ink-200 p-4">
           <h2 class="mb-2 text-lg font-semibold">Vender</h2>
-          <form method="POST" class="space-y-3" onsubmit="this.querySelector('[name=operacion]').value='venta'">
+          <form method="POST" class="space-y-3 op-confirm"
+            onsubmit="this.querySelector('[name=operacion]').value='venta'">
             {% csrf_token %}
             <input type="hidden" name="operacion" value="venta" />
             <div>
               <label class="mb-1 block text-sm text-ink-600">Moneda</label>
-              <select name="moneda" class="w-full rounded-md border border-ink-200 px-3 py-2 focus:ring-2 focus:ring-brand-500">
-                <option value="USDT">USDT — Compra: ${{ cot_usdt.compra }}</option>
-                <option value="USD">USD — Compra: ${{ cot_usd.compra }}</option>
+              <select name="moneda"
+                class="w-full rounded-md border border-ink-200 px-3 py-2 focus:ring-2 focus:ring-brand-500">
+                <option value="USDT" data-compra="{{ cot_usdt.compra }}">USDT — Compra: ${{ cot_usdt.compra }}</option>
+                <option value="USD" data-compra="{{ cot_usd.compra }}">USD — Compra: ${{ cot_usd.compra }}</option>
               </select>
             </div>
             <div>
               <label class="mb-1 block text-sm text-ink-600">Monto a vender (USDT/USD)</label>
-              <input name="monto" step="0.01" type="number" required class="w-full rounded-md border border-ink-200 px-3 py-2 focus:ring-2 focus:ring-brand-500" />
+              <input name="monto" step="0.01" type="number" required
+                class="w-full rounded-md border border-ink-200 px-3 py-2 focus:ring-2 focus:ring-brand-500" />
             </div>
-            <button class="w-full rounded-md bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-700">Vender</button>
+            <button
+              class="w-full rounded-md bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-700">Vender</button>
           </form>
         </article>
+
+        <!-- ...dentro de la misma tarjeta de Operaciones, debajo de los otros <article> -->
+        <article class="rounded-lg border border-ink-200 p-4">
+          <h2 class="mb-2 text-lg font-semibold">Swap USD ⇄ USDT</h2>
+          <form method="POST" class="space-y-3 op-confirm"
+            onsubmit="this.querySelector('[name=operacion]').value='swap'">
+            {% csrf_token %}
+            <input type="hidden" name="operacion" value="swap" />
+            <div class="grid gap-3 sm:grid-cols-2">
+              <div>
+                <label class="mb-1 block text-sm text-ink-600">Dirección</label>
+                <select name="swap_direccion"
+                  class="w-full rounded-md border border-ink-200 px-3 py-2 focus:ring-2 focus:ring-brand-500" required>
+                  <option value="USD_to_USDT">USD → USDT</option>
+                  <option value="USDT_to_USD">USDT → USD</option>
+                </select>
+                <p class="mt-1 text-xs text-ink-500">Tasa base: {{ swap_rate }} | Comisión: {{ swap_fee_bps }} bps</p>
+              </div>
+              <div>
+                <label class="mb-1 block text-sm text-ink-600">Monto (moneda de origen)</label>
+                <input name="monto" step="0.01" type="number" required
+                  class="w-full rounded-md border border-ink-200 px-3 py-2 focus:ring-2 focus:ring-brand-500" />
+              </div>
+            </div>
+            <button
+              class="w-full rounded-md bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-700">Convertir</button>
+          </form>
+          <p class="mt-2 text-xs text-ink-500">El crédito se acredita neto de comisión en la moneda destino.</p>
+        </article>
+
       </div>
     </div>
 
@@ -85,8 +122,111 @@
   <aside class="lg:col-span-4 space-y-6">
     <div class="rounded-xl border border-ink-200 bg-white p-4">
       <h2 class="mb-3 text-lg font-semibold">Ayuda</h2>
-      <p class="text-sm text-ink-600">Selecciona la moneda y el monto. Para Comprar ingresas ARS; para Vender ingresas la cantidad de USDT/USD.</p>
+      <p class="text-sm text-ink-600">Selecciona la moneda y el monto. Para Comprar ingresas ARS; para Vender ingresas
+        la cantidad de USDT/USD.</p>
     </div>
   </aside>
 </section>
+
+<script>
+(function () {
+  // Helpers
+  function q2(n) { return Number(n || 0).toFixed(2); }
+  function fmtARS(v) { return Number(v || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function fmt(v) { return Number(v || 0).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function getSel(form, name) { return form.querySelector('[name="'+name+'"]'); }
+  function selectedOpt(sel) { return sel && sel.selectedOptions ? sel.selectedOptions[0] : null; }
+
+  // Parámetros de swap (inyectados por Django)
+  const SWAP_RATE = Number('{{ swap_rate|default:"1.00" }}');          // base ~1.00
+  const SWAP_FEE_BPS = Number('{{ swap_fee_bps|default:"100" }}');     // 100 bps = 1%
+  const FEE_FACTOR = 1 - (SWAP_FEE_BPS / 10000);
+
+  document.querySelectorAll('form.op-confirm').forEach(function (form) {
+    form.addEventListener('submit', function (e) {
+      const opInput = form.querySelector('[name=operacion]');
+      const op = (opInput && opInput.value || '').toLowerCase();
+
+      const montoInput = getSel(form, 'monto');
+      const monto = Number(montoInput?.value || 0);
+
+      let msg = '¿Confirmar operación?';
+      let detalle = '';
+      let recibeLinea = '';
+
+      if (monto <= 0 || Number.isNaN(monto)) {
+        e.preventDefault();
+        alert('Ingresá un monto válido.');
+        return;
+      }
+
+      if (op === 'compra') {
+        const sel = getSel(form, 'moneda');
+        const moneda = sel?.value || '';
+        const opt = selectedOpt(sel);
+        const precioVenta = Number(opt?.dataset?.venta || 0);
+        if (!precioVenta) {
+          e.preventDefault();
+          alert('No se encontró la cotización de venta.');
+          return;
+        }
+        const recibe = monto / precioVenta; // Monto ARS / $por unidad
+        detalle = `Cotización de venta ${moneda}: $${fmt(precioVenta)} (por 1 ${moneda})`;
+        recibeLinea = `Recibirás: ${fmt(recibe)} ${moneda}`;
+        msg = `Vas a COMPRAR ${moneda} usando $${fmtARS(monto)} ARS.\n${detalle}\n${recibeLinea}\n\n¿Confirmás?`;
+
+      } else if (op === 'venta') {
+        const sel = getSel(form, 'moneda');
+        const moneda = sel?.value || '';
+        const opt = selectedOpt(sel);
+        const precioCompra = Number(opt?.dataset?.compra || 0);
+        if (!precioCompra) {
+          e.preventDefault();
+          alert('No se encontró la cotización de compra.');
+          return;
+        }
+        const recibeARS = monto * precioCompra; // Unidades * $ por unidad
+        detalle = `Cotización de compra ${moneda}: $${fmt(precioCompra)} (por 1 ${moneda})`;
+        recibeLinea = `Recibirás: $${fmtARS(recibeARS)} ARS`;
+        msg = `Vas a VENDER ${fmt(monto)} ${moneda}.\n${detalle}\n${recibeLinea}\n\n¿Confirmás?`;
+
+      } else if (op === 'swap') {
+        const dir = getSel(form, 'swap_direccion')?.value || '';
+        const prettyDir = dir === 'USD_to_USDT' ? 'USD → USDT' : 'USDT → USD';
+
+        let recibe = 0;
+        if (dir === 'USD_to_USDT') {
+          recibe = monto * SWAP_RATE * FEE_FACTOR; // neto de fee
+          detalle = `Tasa base: ${fmt(SWAP_RATE)} | Comisión: ${SWAP_FEE_BPS} bps`;
+          recibeLinea = `Recibirás: ${fmt(recibe)} USDT (neto)`;
+        } else if (dir === 'USDT_to_USD') {
+          recibe = (monto / SWAP_RATE) * FEE_FACTOR; // neto de fee
+          detalle = `Tasa base: ${fmt(SWAP_RATE)} | Comisión: ${SWAP_FEE_BPS} bps`;
+          recibeLinea = `Recibirás: ${fmt(recibe)} USD (neto)`;
+        } else {
+          e.preventDefault();
+          alert('Dirección de swap inválida.');
+          return;
+        }
+
+        msg = `Vas a hacer SWAP ${prettyDir} por ${fmt(monto)} (moneda de origen).\n${detalle}\n${recibeLinea}\n\n¿Confirmás?`;
+      }
+
+      if (!confirm(msg)) {
+        e.preventDefault();
+        return;
+      }
+
+      // Evitar doble envío si confirma
+      const btn = form.querySelector('button[type=submit],button:not([type])');
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Procesando...';
+      }
+    }, false);
+  });
+})();
+</script>
+
+
 {% endblock %}

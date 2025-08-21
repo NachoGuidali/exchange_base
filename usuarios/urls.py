@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import registro, dashboard, panel_admin, cambiar_estado_verificacion, agregar_saldo, panel_depositos, aprobar_deposito, historial_usuario, operar, enviar_retiro, aprobar_retiro, solicitar_retiro, exportar_historial_usuario, exportar_movimientos_admin, exportar_movimientos_usuario, obtener_notificaciones, contar_notificaciones, solicitar_retiro_cripto, aprobar_retiro_cripto, panel_retiros
+from .views import registro, dashboard, panel_admin, cambiar_estado_verificacion, agregar_saldo, panel_depositos, aprobar_deposito, historial_usuario, operar, enviar_retiro, aprobar_retiro, solicitar_retiro, exportar_historial_usuario, exportar_movimientos_admin, exportar_movimientos_usuario, obtener_notificaciones, contar_notificaciones, solicitar_retiro_cripto, aprobar_retiro_cripto, panel_retiros, rechazar_deposito_usdt, aprobar_deposito_usdt, panel_depositos_usdt, depositar_usdt
 urlpatterns = [
     path('registro/', registro, name='registro'),
     path('dashboard/', dashboard, name='dashboard'),
@@ -22,6 +22,11 @@ urlpatterns = [
     path('solicitar-retiro-cripto/', solicitar_retiro_cripto, name='solicitar_retiro_cripto'),
     path('admin-dashboard/retiro-cripto/aprobar/<int:id>/', aprobar_retiro_cripto, name='aprobar_retiro_cripto'),
     path('admin-dashboard/retiros/', panel_retiros, name='panel_retiros'),
+    path('depositar-usdt/', depositar_usdt, name='depositar_usdt'),
+    path('admin/depositos-usdt/', panel_depositos_usdt, name='panel_depositos_usdt'),
+    path('admin/depositos-usdt/<int:deposito_id>/aprobar/', aprobar_deposito_usdt, name='aprobar_deposito_usdt'),
+    path('admin/depositos-usdt/<int:deposito_id>/rechazar/', rechazar_deposito_usdt, name='rechazar_deposito_usdt'),
+
 
 
 

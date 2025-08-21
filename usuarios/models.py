@@ -44,6 +44,32 @@ class DepositoARS(models.Model):
     def __str__(self):
         return f"{self.usuario.username} - ${self.monto} - {self.estado}"
     
+    
+class DepositoUSDT(models.Model):
+    ESTADO_CHOICES = [
+        ('pendiente', 'Pendiente'),
+        ('aprobado', 'Aprobado'),
+        ('rechazado', 'Rechazado'),
+    ]
+
+    REDES = [
+        ('TRC20', 'TRC20'),
+        ('ERC20', 'ERC20'),
+        ('BEP20', 'BEP20'),
+        ('SOL', 'Solana'),
+    ]
+
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    monto = models.DecimalField(max_digits=20, decimal_places=2)
+    red = models.CharField(max_length=10, choices=REDES)
+    txid = models.CharField(max_length=200)
+    comprobante = models.ImageField(upload_to='comprobantes_usdt/')
+    estado = models.CharField(max_length=20, choices=ESTADO_CHOICES, default='pendiente')
+    fecha = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.usuario.username} - {self.monto} USDT - {self.estado}"
+
 
 class Movimiento(models.Model):
     TIPO_CHOICES = [
